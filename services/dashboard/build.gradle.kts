@@ -3,8 +3,8 @@ import org.gradle.api.tasks.testing.logging.TestLogEvent
 
 plugins {
     id("java")
-    id("org.springframework.boot") version "3.2.0"
-    id("io.spring.dependency-management") version "1.1.4"
+    id("org.springframework.boot") version "3.4.0"
+    id("io.spring.dependency-management") version "1.1.7"
 }
 
 group = "com.patternalarm"
@@ -12,8 +12,9 @@ version = "1.0.0"
 description = "PatternAlarm Dashboard"
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(17))
+    }
 }
 
 configurations {
@@ -31,31 +32,30 @@ extra["awsSdkVersion"] = "2.21.0"
 extra["kafkaVersion"] = "3.6.0"
 
 dependencies {
-    // Spring Boot Starters
+    // Spring Boot Starters - MINIMAL for first run
     implementation("org.springframework.boot:spring-boot-starter-web")
-    implementation("org.springframework.boot:spring-boot-starter-thymeleaf")
-    implementation("org.springframework.boot:spring-boot-starter-data-jpa")
-    implementation("org.springframework.boot:spring-boot-starter-actuator")
 
-    // Database
-    implementation("org.postgresql:postgresql")
+    // Add these back incrementally:
+    // implementation("org.springframework.boot:spring-boot-starter-thymeleaf")
+    // implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+    // implementation("org.springframework.boot:spring-boot-starter-actuator")
 
-    // AWS SDK v2
-    implementation(platform("software.amazon.awssdk:bom:${property("awsSdkVersion")}"))
-    implementation("software.amazon.awssdk:lambda")
-    implementation("software.amazon.awssdk:kafka")
-    implementation("software.amazon.awssdk:rds")
-    implementation("software.amazon.awssdk:ecs")
+    // Database - commented out for now
+    // implementation("org.postgresql:postgresql")
 
-    // Kafka Client (for health checks)
-    implementation("org.apache.kafka:kafka-clients:${property("kafkaVersion")}")
+    // AWS SDK v2 - commented out for now
+    // implementation(platform("software.amazon.awssdk:bom:${property("awsSdkVersion")}"))
+    // implementation("software.amazon.awssdk:lambda")
+    // implementation("software.amazon.awssdk:kafka")
+    // implementation("software.amazon.awssdk:rds")
+    // implementation("software.amazon.awssdk:ecs")
 
-    // JSON Processing (included in spring-boot-starter-web, but explicit for clarity)
-    implementation("com.fasterxml.jackson.core:jackson-databind")
+    // Kafka Client - commented out for now
+    // implementation("org.apache.kafka:kafka-clients:${property("kafkaVersion")}")
 
-    // Lombok
-    compileOnly("org.projectlombok:lombok")
-    annotationProcessor("org.projectlombok:lombok")
+    // Lombok (1.18.30+ required for Java 17)
+    compileOnly("org.projectlombok:lombok:1.18.30")
+    annotationProcessor("org.projectlombok:lombok:1.18.30")
 
     // Testing
     testImplementation("org.springframework.boot:spring-boot-starter-test")
@@ -65,7 +65,6 @@ dependencies {
 tasks.withType<Test> {
     useJUnitPlatform()
 
-    // Better test output
     testLogging {
         events = setOf(
             TestLogEvent.PASSED,
@@ -82,24 +81,21 @@ tasks.withType<Test> {
 tasks.withType<JavaCompile> {
     options.encoding = "UTF-8"
     options.compilerArgs.addAll(listOf(
-        "-parameters",  // Preserve parameter names for Spring
+        "-parameters",
         "-Xlint:unchecked",
         "-Xlint:deprecation"
     ))
 }
 
-// Spring Boot configuration
 tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
     archiveFileName.set("${project.name}-${project.version}.jar")
-    launchScript()  // Makes JAR executable on Unix systems
+    launchScript()
 }
 
-// Disable plain JAR (we only need the Boot JAR)
 tasks.named<Jar>("jar") {
     enabled = false
 }
 
-// Task to display project info
 tasks.register("projectInfo") {
     group = "help"
     description = "Displays project information"
@@ -113,7 +109,7 @@ tasks.register("projectInfo") {
             |  Version:      ${project.version}
             |  Java:         ${java.sourceCompatibility}
             |  Spring Boot:  3.2.0
-            |  AWS SDK:      ${property("awsSdkVersion")}
+            |  Mode:         Minimal (Web only)
             |=====================================================
             |
         """.trimMargin())

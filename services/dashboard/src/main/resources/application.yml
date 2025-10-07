@@ -1,0 +1,15 @@
+spring:
+  application:
+    name: patternalarm-dashboard
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+
+server:
+  port: 8080
+
+logging:
+  level:
+    com.patternalarm: DEBUG
+    org.springframework: INFO
