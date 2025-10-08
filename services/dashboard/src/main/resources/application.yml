@@ -12,4 +12,4 @@ server:
 logging:
   level:
     com.patternalarm: DEBUG
-    org.springframework: INFO
+    org.springframework: DEBUG

@@ -34,6 +34,7 @@ extra["kafkaVersion"] = "3.6.0"
 dependencies {
     // Spring Boot Starters - MINIMAL for first run
     implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springframework.boot:spring-boot-starter-thymeleaf")
 
     // Add these back incrementally:
     // implementation("org.springframework.boot:spring-boot-starter-thymeleaf")
