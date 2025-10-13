@@ -1,99 +1,222 @@
 """
-E-commerce transaction generator - AC2.2 PARTIAL
-TODO: Complete the fraud injection methods following gaming.py pattern
+E-commerce transaction generator - Simple and realistic
 """
 import random
 from typing import Dict, Any, List
-from .base import BaseGenerator, FraudPattern
+from .base import BaseGenerator, TransactionPattern
 
 
 class EcommerceGenerator(BaseGenerator):
     """Generates e-commerce checkout transactions"""
 
-    # Product catalog
     CATEGORIES = ['electronics', 'clothing', 'home', 'books', 'toys']
     PAYMENT_METHODS = ['credit_card', 'debit_card', 'paypal', 'apple_pay', 'google_pay']
+    STREETS = ['Main St', 'Oak Ave', 'Park Blvd', 'Elm St', 'Maple Dr', 'Pine Rd', 'River Way']
+    CITIES = ['New York', 'Los Angeles', 'Chicago', 'Houston', 'Phoenix', 'Miami', 'Seattle']
+    STATES = ['NY', 'CA', 'IL', 'TX', 'AZ', 'FL', 'WA']
 
     def __init__(self, test_id: str):
-        super().__init__(domain='ecommerce', test_id=test_id)
+        super().__init__(test_id=test_id)
 
-    def _get_fraud_rates(self) -> Dict[FraudPattern, float]:
-        """AC2.2: E-commerce fraud distribution"""
-        return {
-            FraudPattern.CARD_TESTING: 0.04,  # 4%
-            FraudPattern.FRIENDLY_FRAUD: 0.03,  # 3%
-            FraudPattern.PROMO_ABUSE: 0.02  # 2%
-        }
+    def _generate_pattern_sequence(self, pattern: TransactionPattern, actor_id: str) -> List[Dict[str, Any]]:
+        """Generate 2-10 transactions for the given pattern"""
 
-    def _generate_legitimate_transaction(self) -> Dict[str, Any]:
-        """Generate clean e-commerce transaction"""
-        user_id = f"U{random.randint(100000, 999999)}"
+        if pattern == TransactionPattern.FRAUD_CARD_TESTING:
+            return self._card_testing_sequence(actor_id)
 
-        # Generate cart items
-        cart_items = self._generate_cart_items()
-        total_amount = sum(item['price'] * item['quantity'] for item in cart_items)
+        elif pattern == TransactionPattern.FRAUD_FRIENDLY_FRAUD:
+            return self._friendly_fraud_sequence(actor_id)
 
-        return {
-            'user_id': user_id,
-            'cart_items': cart_items,
-            'payment_method': random.choice(self.PAYMENT_METHODS),
-            'amount': round(total_amount, 2),
-            'currency': 'USD',
-            'shipping_address': self._generate_address(),
-            'billing_address': self._generate_address(),
-            'ip_address': self._random_ip(),
-            'session_duration': random.randint(60, 1800),
-            'device_fingerprint': self._generate_id(32)
-        }
+        elif pattern == TransactionPattern.FRAUD_PROMO_ABUSE:
+            return self._promo_abuse_sequence(actor_id)
 
-    def _inject_fraud_pattern(self, transaction: Dict[str, Any],
-                              pattern: FraudPattern) -> Dict[str, Any]:
-        """Inject fraud signals"""
+        elif pattern == TransactionPattern.REGULAR_SHOPPER:
+            return self._regular_shopper_sequence(actor_id)
 
-        if pattern == FraudPattern.CARD_TESTING:
-            # TODO: Implement card testing pattern
-            # Hint: Multiple small transactions, different cards, short intervals
-            # Examples from gaming.py:
-            # - Modify amount to be very small (< $5)
-            # - Add 'card_test_sequence' field
-            # - Set session_duration to very short (< 30s)
-            transaction['amount'] = random.uniform(0.99, 4.99)
-            transaction['card_test_sequence'] = random.randint(1, 20)
-            # TODO: Add more card testing signals here
+        elif pattern == TransactionPattern.REGULAR_WINDOW_SHOPPER:
+            return self._window_shopper_sequence(actor_id)
 
-        elif pattern == FraudPattern.FRIENDLY_FRAUD:
-            # TODO: Implement friendly fraud pattern
-            # Hint: Legitimate purchase but will dispute later
-            # - High-value items
-            # - Digital goods (harder to prove delivery)
-            # - Pattern: customer_type = 'repeat_disputer'
-            pass  # Implement this
+        else:
+            return self._regular_shopper_sequence(actor_id)
 
-        elif pattern == FraudPattern.PROMO_ABUSE:
-            # TODO: Implement promo abuse pattern
-            # Hint: Multiple accounts, same address, promo code abuse
-            # - Add 'promo_code_used' field
-            # - Mark 'shipping_address' as duplicate
-            # - Low account age
-            pass  # Implement this
+    # ========================================================================
+    # Fraud Patterns
+    # ========================================================================
 
-        return transaction
+    def _card_testing_sequence(self, user_id: str) -> List[Dict[str, Any]]:
+        """Card testing: 5-10 small transactions testing stolen cards"""
+        num_txns = random.randint(5, 10)
+        ip = self._random_ip()
+        device = self._generate_id(32)
+        shipping = self._generate_address()
+        billing = self._generate_address()
 
-    def _generate_cart_items(self) -> List[Dict[str, Any]]:
-        """Generate 1-5 cart items"""
-        num_items = random.randint(1, 5)
+        transactions = []
+        for _ in range(num_txns):
+            # Small test purchases
+            item = self._generate_single_item('books')  # Low value items
+
+            transactions.append({
+                'user_id': user_id,
+                'cart_items': [item],
+                'amount': round(item['price'] * item['quantity'], 2),
+                'currency': 'USD',
+                'payment_method': 'credit_card',
+                'shipping_address': shipping,
+                'billing_address': billing,
+                'ip_address': ip,
+                'device_fingerprint': device,
+                'session_duration_sec': random.randint(5, 30)
+            })
+
+        return transactions
+
+    def _friendly_fraud_sequence(self, user_id: str) -> List[Dict[str, Any]]:
+        """Friendly fraud: 2-3 legitimate purchases that will be disputed"""
+        num_txns = random.randint(2, 3)
+        ip = self._random_ip()
+        device = self._generate_id(32)
+        shipping = self._generate_address()
+        billing = shipping  # Same address (legitimate looking)
+        payment = random.choice(self.PAYMENT_METHODS)
+
+        transactions = []
+        for _ in range(num_txns):
+            # High-value or digital goods
+            items = [self._generate_single_item('electronics')]
+            total = sum(item['price'] * item['quantity'] for item in items)
+
+            transactions.append({
+                'user_id': user_id,
+                'cart_items': items,
+                'amount': round(total, 2),
+                'currency': 'USD',
+                'payment_method': payment,
+                'shipping_address': shipping,
+                'billing_address': billing,
+                'ip_address': ip,
+                'device_fingerprint': device,
+                'session_duration_sec': random.randint(300, 1800)
+            })
+
+        return transactions
+
+    def _promo_abuse_sequence(self, user_id: str) -> List[Dict[str, Any]]:
+        """Promo abuse: 4-8 orders using same promo code from multiple accounts"""
+        num_txns = random.randint(4, 8)
+        # Same shipping address (red flag)
+        shared_shipping = self._generate_address()
+        ip = self._random_ip()
+
+        transactions = []
+        for i in range(num_txns):
+            # Different device/billing per "account"
+            device = self._generate_id(32)
+            billing = self._generate_address()
+            items = self._generate_cart(1, 2)
+            total = sum(item['price'] * item['quantity'] for item in items)
+
+            transactions.append({
+                'user_id': f"{user_id}_{i}",  # Multiple fake accounts
+                'cart_items': items,
+                'amount': round(total, 2),
+                'currency': 'USD',
+                'payment_method': random.choice(self.PAYMENT_METHODS),
+                'shipping_address': shared_shipping,  # Same address!
+                'billing_address': billing,
+                'ip_address': ip,
+                'device_fingerprint': device,
+                'session_duration_sec': random.randint(120, 600)
+            })
+
+        return transactions
+
+    # ========================================================================
+    # Regular Patterns
+    # ========================================================================
+
+    def _regular_shopper_sequence(self, user_id: str) -> List[Dict[str, Any]]:
+        """Regular shopper: 2-3 normal purchases"""
+        num_txns = random.randint(2, 3)
+        ip = self._random_ip()
+        device = self._generate_id(32)
+        shipping = self._generate_address()
+        billing = shipping if random.random() > 0.2 else self._generate_address()
+        payment = random.choice(self.PAYMENT_METHODS)
+
+        transactions = []
+        for _ in range(num_txns):
+            items = self._generate_cart(1, 4)
+            total = sum(item['price'] * item['quantity'] for item in items)
+
+            transactions.append({
+                'user_id': user_id,
+                'cart_items': items,
+                'amount': round(total, 2),
+                'currency': 'USD',
+                'payment_method': payment,
+                'shipping_address': shipping,
+                'billing_address': billing,
+                'ip_address': ip,
+                'device_fingerprint': device,
+                'session_duration_sec': random.randint(300, 2400)
+            })
+
+        return transactions
+
+    def _window_shopper_sequence(self, user_id: str) -> List[Dict[str, Any]]:
+        """Window shopper: 2-4 small purchases after long browsing"""
+        num_txns = random.randint(2, 4)
+        ip = self._random_ip()
+        device = self._generate_id(32)
+        shipping = self._generate_address()
+        billing = shipping
+        payment = random.choice(self.PAYMENT_METHODS)
+
+        transactions = []
+        for _ in range(num_txns):
+            # Smaller carts, lower value items
+            items = self._generate_cart(1, 2)
+            total = sum(item['price'] * item['quantity'] for item in items)
+
+            transactions.append({
+                'user_id': user_id,
+                'cart_items': items,
+                'amount': round(total, 2),
+                'currency': 'USD',
+                'payment_method': payment,
+                'shipping_address': shipping,
+                'billing_address': billing,
+                'ip_address': ip,
+                'device_fingerprint': device,
+                'session_duration_sec': random.randint(600, 3600)  # Long browsing
+            })
+
+        return transactions
+
+    # ========================================================================
+    # Helper Methods
+    # ========================================================================
+
+    def _generate_cart(self, min_items: int, max_items: int) -> List[Dict[str, Any]]:
+        """Generate cart with multiple items"""
+        num_items = random.randint(min_items, max_items)
         items = []
 
         for _ in range(num_items):
             category = random.choice(self.CATEGORIES)
-            items.append({
-                'product_id': f"PROD{random.randint(1000, 9999)}",
-                'category': category,
-                'price': self._get_product_price(category),
-                'quantity': random.randint(1, 3)
-            })
+            items.append(self._generate_single_item(category))
 
         return items
+
+    def _generate_single_item(self, category: str) -> Dict[str, Any]:
+        """Generate a single cart item"""
+        return {
+            'product_id': f"PROD{random.randint(1000, 9999)}",
+            'category': category,
+            'price': self._get_product_price(category),
+            'quantity': random.randint(1, 3)
+        }
 
     @staticmethod
     def _get_product_price(category: str) -> float:
@@ -108,20 +231,12 @@ class EcommerceGenerator(BaseGenerator):
         min_price, max_price = prices.get(category, (9.99, 99.99))
         return round(random.uniform(min_price, max_price), 2)
 
-    @staticmethod
-    def _generate_address() -> Dict[str, str]:
-        """
-        Generate realistic shipping/billing address
-        TODO: Make this more realistic with real street patterns
-        """
-        streets = ['Main St', 'Oak Ave', 'Park Blvd', 'Elm St', 'Maple Dr']
-        cities = ['New York', 'Los Angeles', 'Chicago', 'Houston', 'Phoenix']
-        states = ['NY', 'CA', 'IL', 'TX', 'AZ']
-
+    def _generate_address(self) -> Dict[str, str]:
+        """Generate realistic address"""
         return {
-            'street': f"{random.randint(100, 9999)} {random.choice(streets)}",
-            'city': random.choice(cities),
-            'state': random.choice(states),
+            'street': f"{random.randint(100, 9999)} {random.choice(self.STREETS)}",
+            'city': random.choice(self.CITIES),
+            'state': random.choice(self.STATES),
             'zip': f"{random.randint(10000, 99999)}",
             'country': 'US'
         }

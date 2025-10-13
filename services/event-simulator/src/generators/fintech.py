@@ -1,10 +1,9 @@
 """
-FinTech transaction generator - AC2.3 PARTIAL
-TODO: Complete the fraud injection methods
+FinTech transaction generator - Simple and realistic
 """
 import random
-from typing import Dict, Any
-from .base import BaseGenerator, FraudPattern
+from typing import Dict, Any, List
+from .base import BaseGenerator, TransactionPattern
 
 
 class FinTechGenerator(BaseGenerator):
@@ -12,77 +11,183 @@ class FinTechGenerator(BaseGenerator):
 
     CURRENCIES = ['USD', 'EUR', 'GBP', 'JPY', 'CHF']
     COUNTRIES = ['US', 'UK', 'DE', 'FR', 'JP', 'CH', 'CA']
+    HIGH_RISK_COUNTRIES = ['KY', 'PA', 'BZ', 'VG']  # Cayman Islands, Panama, Belize, BVI
     TRANSFER_TYPES = ['wire', 'ach', 'swift', 'sepa']
+    PURPOSES = ['payment', 'invoice', 'salary', 'investment', 'personal', 'business']
 
     def __init__(self, test_id: str):
-        super().__init__(domain='fintech', test_id=test_id)
+        super().__init__(test_id=test_id)
 
-    def _get_fraud_rates(self) -> Dict[FraudPattern, float]:
-        """AC2.3: FinTech fraud distribution"""
-        return {
-            FraudPattern.STRUCTURING: 0.03,  # 3%
-            FraudPattern.MONEY_LAUNDERING: 0.02,  # 2%
-            FraudPattern.SYNTHETIC_IDENTITY: 0.01  # 1%
-        }
+    def _generate_pattern_sequence(self, pattern: TransactionPattern, actor_id: str) -> List[Dict[str, Any]]:
+        """Generate 2-10 transactions for the given pattern"""
 
-    def _generate_legitimate_transaction(self) -> Dict[str, Any]:
-        """Generate clean wire transfer"""
+        if pattern == TransactionPattern.FRAUD_STRUCTURING:
+            return self._structuring_sequence(actor_id)
 
-        # Generate account numbers
-        account_from = f"ACC{random.randint(1000000, 9999999)}"
+        elif pattern == TransactionPattern.FRAUD_MONEY_LAUNDERING:
+            return self._money_laundering_sequence(actor_id)
+
+        elif pattern == TransactionPattern.FRAUD_SYNTHETIC_IDENTITY:
+            return self._synthetic_identity_sequence(actor_id)
+
+        elif pattern == TransactionPattern.REGULAR_SAVER:
+            return self._regular_saver_sequence(actor_id)
+
+        elif pattern == TransactionPattern.REGULAR_BILL_PAYER:
+            return self._bill_payer_sequence(actor_id)
+
+        else:
+            return self._regular_saver_sequence(actor_id)
+
+    # ========================================================================
+    # Fraud Patterns
+    # ========================================================================
+
+    def _structuring_sequence(self, account_from: str) -> List[Dict[str, Any]]:
+        """Structuring: 5-10 transfers just under $10K reporting threshold"""
+        num_txns = random.randint(5, 10)
+        currency = 'USD'
+        ip = self._random_ip()
+        country_from = 'US'
+        transfer_type = 'wire'
+
+        # Multiple destination accounts (smurfing)
+        transactions = []
+        for _ in range(num_txns):
+            account_to = f"ACC{random.randint(1000000, 9999999)}"
+
+            transactions.append({
+                'account_from': account_from,
+                'account_to': account_to,
+                'amount': round(random.uniform(9500, 9999), 2),  # Just under $10K
+                'currency': currency,
+                'transfer_type': transfer_type,
+                'country_from': country_from,
+                'country_to': random.choice(self.COUNTRIES),
+                'purpose': 'payment',
+                'ip_address': ip
+            })
+
+        return transactions
+
+    def _money_laundering_sequence(self, account_from: str) -> List[Dict[str, Any]]:
+        """Money laundering: 4-8 rapid transfers through layered accounts"""
+        num_txns = random.randint(4, 8)
+        currency = random.choice(self.CURRENCIES)
+        ip = self._random_ip()
+        transfer_type = 'swift'
+
+        # Layering - money moves through multiple accounts
+        accounts = [account_from]
+        for _ in range(num_txns):
+            accounts.append(f"ACC{random.randint(1000000, 9999999)}")
+
+        transactions = []
+        for i in range(num_txns):
+            # High-risk jurisdictions involved
+            country_to = random.choice(self.HIGH_RISK_COUNTRIES + self.COUNTRIES)
+
+            transactions.append({
+                'account_from': accounts[i],
+                'account_to': accounts[i + 1],
+                'amount': round(random.uniform(50000, 500000), 2),
+                'currency': currency,
+                'transfer_type': transfer_type,
+                'country_from': random.choice(self.COUNTRIES),
+                'country_to': country_to,
+                'purpose': random.choice(['business', 'investment']),
+                'ip_address': ip
+            })
+
+        return transactions
+
+    def _synthetic_identity_sequence(self, account_from: str) -> List[Dict[str, Any]]:
+        """Synthetic identity: 3-5 transactions from newly created fake account"""
+        num_txns = random.randint(3, 5)
+        currency = 'USD'
+        ip = self._random_ip()
+        transfer_type = random.choice(['wire', 'ach'])
+        country = 'US'
+
+        transactions = []
+        for _ in range(num_txns):
+            account_to = f"ACC{random.randint(1000000, 9999999)}"
+
+            transactions.append({
+                'account_from': account_from,
+                'account_to': account_to,
+                'amount': round(random.uniform(5000, 50000), 2),
+                'currency': currency,
+                'transfer_type': transfer_type,
+                'country_from': country,
+                'country_to': country,
+                'purpose': random.choice(self.PURPOSES),
+                'ip_address': ip
+            })
+
+        return transactions
+
+    # ========================================================================
+    # Regular Patterns
+    # ========================================================================
+
+    def _regular_saver_sequence(self, account_from: str) -> List[Dict[str, Any]]:
+        """Regular saver: 2-4 recurring savings transfers"""
+        num_txns = random.randint(2, 4)
+        currency = random.choice(self.CURRENCIES)
+        ip = self._random_ip()
+        transfer_type = 'ach'
+        country = random.choice(self.COUNTRIES)
+
+        # Same destination (savings account)
         account_to = f"ACC{random.randint(1000000, 9999999)}"
 
-        # Random amount based on transfer type
-        transfer_type = random.choice(self.TRANSFER_TYPES)
-        amount = self._get_transfer_amount(transfer_type)
+        transactions = []
+        for _ in range(num_txns):
+            transactions.append({
+                'account_from': account_from,
+                'account_to': account_to,
+                'amount': round(random.uniform(200, 2000), 2),
+                'currency': currency,
+                'transfer_type': transfer_type,
+                'country_from': country,
+                'country_to': country,
+                'purpose': 'personal',
+                'ip_address': ip
+            })
 
-        return {
-            'account_from': account_from,
-            'account_to': account_to,
-            'amount': amount,
-            'currency': random.choice(self.CURRENCIES),
-            'transfer_type': transfer_type,
-            'country_from': random.choice(self.COUNTRIES),
-            'country_to': random.choice(self.COUNTRIES),
-            'purpose': random.choice(['payment', 'invoice', 'salary', 'investment']),
-            'ip_address': self._random_ip(),
-            'timestamp_initiated': None  # Will be set in base class
-        }
+        return transactions
 
-    def _inject_fraud_pattern(self, transaction: Dict[str, Any],
-                              pattern: FraudPattern) -> Dict[str, Any]:
-        """Inject fraud signals"""
+    def _bill_payer_sequence(self, account_from: str) -> List[Dict[str, Any]]:
+        """Bill payer: 3-6 recurring bill payments"""
+        num_txns = random.randint(3, 6)
+        currency = random.choice(self.CURRENCIES)
+        ip = self._random_ip()
+        transfer_type = 'ach'
+        country = random.choice(self.COUNTRIES)
 
-        if pattern == FraudPattern.STRUCTURING:
-            # TODO: Implement structuring pattern (smurfing)
-            # Hint: Multiple transactions just under reporting threshold ($10K)
-            # - Amount just under $10,000 (e.g., $9,500 - $9,999)
-            # - Add 'related_transactions' count
-            # - Same account sending multiple times
-            # Reference gaming.py for pattern structure
-            pass  # Implement this
+        transactions = []
+        for _ in range(num_txns):
+            # Different payees (utilities, rent, etc)
+            account_to = f"ACC{random.randint(1000000, 9999999)}"
 
-        elif pattern == FraudPattern.MONEY_LAUNDERING:
-            # TODO: Implement money laundering pattern
-            # Hint: Rapid movement of funds through multiple accounts
-            # - High amounts
-            # - Suspicious country pairs (high-risk jurisdictions)
-            # - Add 'layering_depth' field (how many hops)
-            # - Purpose marked as 'unclear' or 'business'
-            pass  # Implement this
+            transactions.append({
+                'account_from': account_from,
+                'account_to': account_to,
+                'amount': round(random.uniform(50, 1500), 2),
+                'currency': currency,
+                'transfer_type': transfer_type,
+                'country_from': country,
+                'country_to': country,
+                'purpose': random.choice(['payment', 'invoice']),
+                'ip_address': ip
+            })
 
-        elif pattern == FraudPattern.SYNTHETIC_IDENTITY:
-            # TODO: Implement synthetic identity pattern
-            # Hint: New account with suspicious activity
-            # - Account age < 30 days
-            # - First transaction is high value
-            # - SSN/identity mismatch signals
-            # - Add 'account_age_days' field
-            transaction['account_age_days'] = random.randint(1, 29)
-            transaction['identity_verification_score'] = random.uniform(0.1, 0.4)
-            # TODO: Add more synthetic identity signals
+        return transactions
 
-        return transaction
+    # ========================================================================
+    # Helper Methods
+    # ========================================================================
 
     @staticmethod
     def _get_transfer_amount(transfer_type: str) -> float:

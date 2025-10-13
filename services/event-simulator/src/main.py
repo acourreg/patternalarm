@@ -17,8 +17,64 @@ sys.path.insert(0, str(Path(__file__).parent))
 from generators.gaming import GamingGenerator
 from generators.ecommerce import EcommerceGenerator
 from generators.fintech import FinTechGenerator
+from generators.base import TransactionPattern
 from kafka_publisher import KafkaPublisher
 
+# ============================================================================
+# PATTERN RATE CONSTANTS - Standard fraud/regular distribution per domain
+# ============================================================================
+
+GAMING_PATTERN_RATES = {
+    # Fraud patterns (10% total)
+    TransactionPattern.FRAUD_ACCOUNT_TAKEOVER: 0.05,
+    TransactionPattern.FRAUD_GOLD_FARMING: 0.03,
+    TransactionPattern.FRAUD_CHARGEBACK_FRAUD: 0.02,
+    # Regular patterns (90% total)
+    TransactionPattern.REGULAR_CASUAL_PLAYER: 0.60,
+    TransactionPattern.REGULAR_WHALE_SPENDER: 0.15,
+    TransactionPattern.REGULAR_GRINDER: 0.15,
+}
+
+ECOMMERCE_PATTERN_RATES = {
+    # Fraud patterns (8% total)
+    TransactionPattern.FRAUD_CARD_TESTING: 0.03,
+    TransactionPattern.FRAUD_FRIENDLY_FRAUD: 0.03,
+    TransactionPattern.FRAUD_PROMO_ABUSE: 0.02,
+    # Regular patterns (92% total)
+    TransactionPattern.REGULAR_SHOPPER: 0.75,
+    TransactionPattern.REGULAR_WINDOW_SHOPPER: 0.17,
+}
+
+FINTECH_PATTERN_RATES = {
+    # Fraud patterns (7% total)
+    TransactionPattern.FRAUD_STRUCTURING: 0.02,
+    TransactionPattern.FRAUD_MONEY_LAUNDERING: 0.03,
+    TransactionPattern.FRAUD_SYNTHETIC_IDENTITY: 0.02,
+    # Regular patterns (93% total)
+    TransactionPattern.REGULAR_SAVER: 0.55,
+    TransactionPattern.REGULAR_BILL_PAYER: 0.38,
+}
+
+# Domain configuration mapping
+DOMAIN_CONFIG = {
+    'gaming': {
+        'generator_class': GamingGenerator,
+        'pattern_rates': GAMING_PATTERN_RATES
+    },
+    'ecommerce': {
+        'generator_class': EcommerceGenerator,
+        'pattern_rates': ECOMMERCE_PATTERN_RATES
+    },
+    'fintech': {
+        'generator_class': FinTechGenerator,
+        'pattern_rates': FINTECH_PATTERN_RATES
+    }
+}
+
+
+# ============================================================================
+# Load Level Configuration
+# ============================================================================
 
 class LoadLevel(Enum):
     """Load testing profiles"""
@@ -38,6 +94,10 @@ class LoadLevel(Enum):
         raise ValueError(f"Unknown load level: {level}")
 
 
+# ============================================================================
+# Core Functions
+# ============================================================================
+
 def setup_logging(verbose: bool = False):
     """Configure logging"""
     level = logging.DEBUG if verbose else logging.INFO
@@ -50,23 +110,27 @@ def setup_logging(verbose: bool = False):
 
 def create_generator(domain: str, test_id: str):
     """Factory for domain-specific generator"""
-    generators = {
-        'gaming': GamingGenerator,
-        'ecommerce': EcommerceGenerator,
-        'fintech': FinTechGenerator
-    }
+    config = DOMAIN_CONFIG.get(domain)
+    if not config:
+        raise ValueError(f"Unknown domain: {domain}. Available: {list(DOMAIN_CONFIG.keys())}")
 
-    generator_class = generators.get(domain)
-    if not generator_class:
-        raise ValueError(f"Unknown domain: {domain}")
-
+    generator_class = config['generator_class']
     return generator_class(test_id)
+
+
+def get_pattern_rates(domain: str):
+    """Get pattern rates for specified domain"""
+    config = DOMAIN_CONFIG.get(domain)
+    if not config:
+        raise ValueError(f"Unknown domain: {domain}. Available: {list(DOMAIN_CONFIG.keys())}")
+
+    return config['pattern_rates']
 
 
 def run_test(test_id: str, domain: str, load_level: LoadLevel,
              duration_seconds: int, kafka_bootstrap: str, kafka_topic: str):
     """
-    Execute load test - AC2.5 simplified (no multiprocessing yet)
+    Execute load test with domain-specific pattern rates
     Phase 1: Serial batch generation
     Phase 2: Replace with Lambda concurrency
     """
@@ -76,8 +140,14 @@ def run_test(test_id: str, domain: str, load_level: LoadLevel,
     logger.info(f"Domain: {domain}, Load: {load_level.level_name}, Duration: {duration_seconds}s")
     logger.info(f"Target: {load_level.events_per_min:,} events/min")
 
-    # Create generator and publisher
+    # Create generator and get pattern rates for this domain
     generator = create_generator(domain, test_id)
+    pattern_rates = get_pattern_rates(domain)
+
+    # Log pattern distribution
+    fraud_rate = sum(rate for pattern, rate in pattern_rates.items() if pattern.is_fraud())
+    logger.info(f"Pattern distribution: {fraud_rate * 100:.1f}% fraud, {(1 - fraud_rate) * 100:.1f}% legitimate")
+
     publisher = KafkaPublisher(
         bootstrap_servers=kafka_bootstrap,
         topic=kafka_topic
@@ -99,8 +169,8 @@ def run_test(test_id: str, domain: str, load_level: LoadLevel,
         logger.info(f"Generating {total_batches} batches of {batch_size} events...")
 
         for batch_num in range(total_batches):
-            # Generate batch
-            events = generator.generate_batch(batch_size)
+            # Generate batch with domain-specific pattern rates
+            events = generator.generate_batch(batch_size, pattern_rates)
             events_generated += len(events)
 
             # Publish to Kafka
@@ -134,13 +204,15 @@ def run_test(test_id: str, domain: str, load_level: LoadLevel,
             'error_rate_percent': round(error_rate, 2),
             'target_rate_per_min': load_level.events_per_min,
             'actual_rate_per_min': round(actual_rate, 0),
-            'efficiency_percent': round((actual_rate / load_level.events_per_min * 100), 1)
+            'efficiency_percent': round((actual_rate / load_level.events_per_min * 100), 1),
+            'fraud_rate_percent': round(fraud_rate * 100, 1)
         }
 
         logger.info("=" * 60)
         logger.info(f"Test Complete: {test_id}")
         logger.info(f"Published: {events_published:,} events in {duration:.1f}s")
         logger.info(f"Rate: {actual_rate:,.0f}/min (target: {load_level.events_per_min:,}/min)")
+        logger.info(f"Fraud rate: {fraud_rate * 100:.1f}%")
         logger.info(f"Errors: {errors} ({error_rate:.2f}%)")
         logger.info("=" * 60)
 
