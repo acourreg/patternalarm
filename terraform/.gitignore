@@ -1,0 +1,43 @@
+# 1. Create .gitignore
+cat > .gitignore << 'EOF'
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+terraform.tfstate.backup
+
+# AWS
+.aws/
+*.pem
+
+# Environment
+.env
+*.env
+.venv/
+__pycache__/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+EOF
+
+# 2. Git commit Day 4
+git add .
+git commit -m "feat(day4): Complete infrastructure - VPC, MSK, RDS, IAM roles
+
+- Multi-AZ VPC with 3 private + 1 public subnet
+- MSK cluster config (dev/prod toggle)
+- RDS PostgreSQL setup
+- IAM roles for Lambda & ECS
+- Infrastructure documented
+- Time: 4.5h (saved 3.5h)"
+
+git push
