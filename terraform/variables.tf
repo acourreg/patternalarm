@@ -39,3 +39,9 @@ variable "availability_zones" {
   type        = list(string)
   default     = ["us-east-1a", "us-east-1b", "us-east-1c"]
 }
+
+variable "random_suffix" {
+  description = "Random suffix for resource names"
+  type        = string
+  default     = "a7x9"  # Change this each time
+}

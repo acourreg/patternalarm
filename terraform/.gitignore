@@ -22,6 +22,9 @@ __pycache__/
 .idea/
 *.swp
 
+#Config
+config/
+
 # Logs
 *.log
 

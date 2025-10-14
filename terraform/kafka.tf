@@ -1,5 +1,5 @@
 resource "aws_msk_cluster" "main" {
-  cluster_name           = "${var.project_name}-msk"
+  cluster_name = "${var.project_name}-msk-${var.random_suffix}"
   kafka_version          = "3.6.0"
   
   # DEV: 1 broker, t3.small (~$50/month)

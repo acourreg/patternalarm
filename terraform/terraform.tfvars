@@ -3,4 +3,4 @@ aws_profile  = "terraform"
 project_name = "patternalarm"
 
 # Random password généré une fois
-db_password = "K7mP9xQ2wN5vL8jR"
+db_password = "Xp9mK2vR7nL4jWq8"
