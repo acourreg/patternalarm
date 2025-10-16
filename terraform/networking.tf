@@ -107,11 +107,22 @@ resource "aws_security_group" "msk" {
   description = "Security group for MSK cluster"
   vpc_id      = aws_vpc.main.id
   
+  # Allow from Lambda only
   ingress {
-    from_port   = 9092
-    to_port     = 9092
-    protocol    = "tcp"
-    cidr_blocks = [var.vpc_cidr]
+    description     = "Kafka from Lambda"
+    from_port       = 9092
+    to_port         = 9092
+    protocol        = "tcp"
+    security_groups = [aws_security_group.lambda.id]
+  }
+  
+  # Allow MSK inter-broker communication
+  ingress {
+    description = "MSK broker communication"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    self        = true
   }
   
   egress {
@@ -182,4 +193,22 @@ resource "aws_route_table_association" "private_b" {
 resource "aws_route_table_association" "private_c" {
   subnet_id      = aws_subnet.private_c.id
   route_table_id = aws_route_table.private.id
+}
+
+# Security Group for Lambda
+resource "aws_security_group" "lambda" {
+  name        = "${var.project_name}-lambda-sg"
+  description = "Security group for Lambda functions"
+  vpc_id      = aws_vpc.main.id
+  
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  
+  tags = {
+    Name = "${var.project_name}-lambda-sg"
+  }
 }

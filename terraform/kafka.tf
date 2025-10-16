@@ -1,5 +1,5 @@
 resource "aws_msk_cluster" "main" {
-  cluster_name = "${var.project_name}-msk-${var.random_suffix}"
+  cluster_name           = "${var.project_name}-msk-${var.random_suffix}"
   kafka_version          = "3.6.0"
   
   # DEV: 1 broker, t3.small (~$50/month)
@@ -16,7 +16,11 @@ resource "aws_msk_cluster" "main" {
     # DEV
     client_subnets = [aws_subnet.private.id]
     # DEMO
-    # client_subnets = [aws_subnet.private.id, aws_subnet.private_b.id, aws_subnet.private_c.id]
+    # client_subnets = [
+    #   aws_subnet.private.id,
+    #   aws_subnet.private_b.id,
+    #   aws_subnet.private_c.id
+    # ]
     
     storage_info {
       ebs_storage_info {
@@ -29,12 +33,22 @@ resource "aws_msk_cluster" "main" {
   
   encryption_info {
     encryption_in_transit {
-      client_broker = "TLS"
+      client_broker = "PLAINTEXT"  # ✅ Dev mode - no auth needed
       in_cluster    = true
     }
+    # DEMO: Use TLS + SASL/SCRAM
+    # encryption_in_transit {
+    #   client_broker = "TLS"
+    #   in_cluster    = true
+    # }
   }
   
   tags = {
     Name = "${var.project_name}-msk"
   }
+}
+
+output "msk_bootstrap_brokers" {
+  value       = aws_msk_cluster.main.bootstrap_brokers
+  description = "MSK broker endpoints (plaintext)"
 }

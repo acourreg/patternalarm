@@ -13,6 +13,9 @@ from generators.ecommerce import EcommerceGenerator
 from generators.fintech import FinTechGenerator
 from generators.base import TransactionPattern
 from kafka_publisher import KafkaPublisher
+from main import run_test, LoadLevel, GAMING_PATTERN_RATES  # 🆕 Import run_test
+
+
 
 # Test pattern rates (defined once at top)
 TEST_RATES = {
@@ -60,6 +63,40 @@ def test_kafka_publisher():
         return False
 
 
+
+def test_run_test():
+    """Test the main run_test function end-to-end"""
+    print("🚀 Testing run_test() function...")
+
+    try:
+        result = run_test(
+            test_id='test-integration',
+            domain='gaming',
+            load_level=LoadLevel.NORMAL,
+            duration_seconds=60,
+            kafka_bootstrap='localhost:9092',
+            kafka_topic='gaming-events'
+        )
+
+        # Verify result structure
+        assert 'test_id' in result
+        assert 'events_published' in result
+        assert 'actual_rate_per_min' in result
+        assert result['events_published'] > 0
+
+        print(f"   ✅ Test ID: {result['test_id']}")
+        print(f"   ✅ Published: {result['events_published']} events")
+        print(f"   ✅ Rate: {result['actual_rate_per_min']}/min")
+        print(f"   ✅ Fraud rate: {result['fraud_rate_percent']}%")
+        print("   PASS\n")
+        return True
+
+    except Exception as e:
+        print(f"   ❌ run_test() failed: {e}")
+        print("   ⚠️  Start Kafka: docker compose up -d\n")
+        return False
+
+
 def main():
     print("=" * 60)
     print("PatternAlarm - Validation Tests")
@@ -68,8 +105,16 @@ def main():
     test_gaming_generator()
     kafka_ok = test_kafka_publisher()
 
+    # Only test run_test if Kafka is available
+    run_test_ok = False
+    if kafka_ok:
+        run_test_ok = test_run_test()
+
     print("=" * 60)
-    print("✅ All tests passed!" if kafka_ok else "⚠️  Tests passed (Kafka skipped)")
+    if kafka_ok and run_test_ok:
+        print("✅ All tests passed!")
+    else:
+        print("⚠️  Tests passed (Kafka tests skipped)")
     print("=" * 60)
 
 
