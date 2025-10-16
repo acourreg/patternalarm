@@ -18,10 +18,3 @@ load_config() {
         exit 1
     fi
 }
-```
-
----
-
-### **scripts/.gitignore**
-```
-config.conf

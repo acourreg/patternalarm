@@ -1,8 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${SCRIPT_DIR}/lib/common.sh"
+SCRIPT_DIR="$(dirname "$0")"
+source "${SCRIPT_DIR}/common.sh"
 
 # Load config
 load_config
@@ -11,10 +11,20 @@ echo "🚀 Creating Kafka Topics..."
 echo "Bootstrap Servers: ${KAFKA_BOOTSTRAP_SERVERS}"
 echo ""
 
-# Build common args
-KAFKA_ARGS="--bootstrap-server ${KAFKA_BOOTSTRAP_SERVERS}"
-if [[ -n "${KAFKA_CLIENT_CONFIG}" ]]; then
-    KAFKA_ARGS="${KAFKA_ARGS} --command-config ${KAFKA_CLIENT_CONFIG}"
+# Detect if using local Docker or remote MSK
+if [[ "${KAFKA_BOOTSTRAP_SERVERS}" == "localhost:9092" ]]; then
+    # Local Docker - use docker exec
+    KAFKA_CMD="docker exec -it kafka kafka-topics"
+    BOOTSTRAP_ARG="--bootstrap-server kafka:29092"
+else
+    # Remote MSK - use local kafka-topics.sh
+    KAFKA_CMD="kafka-topics.sh"
+    BOOTSTRAP_ARG="--bootstrap-server ${KAFKA_BOOTSTRAP_SERVERS}"
+    
+    # Add client config if specified
+    if [[ -n "${KAFKA_CLIENT_CONFIG}" ]]; then
+        BOOTSTRAP_ARG="${BOOTSTRAP_ARG} --command-config ${KAFKA_CLIENT_CONFIG}"
+    fi
 fi
 
 # Create topics
@@ -22,8 +32,8 @@ create_topic() {
     local topic_name=$1
     echo "📊 Creating topic: ${topic_name}"
     
-    kafka-topics.sh --create \
-        ${KAFKA_ARGS} \
+    ${KAFKA_CMD} --create \
+        ${BOOTSTRAP_ARG} \
         --topic "${topic_name}" \
         --partitions "${KAFKA_PARTITIONS}" \
         --replication-factor "${KAFKA_REPLICATION_FACTOR}" \
@@ -39,7 +49,7 @@ create_topic "${TOPIC_ECOMMERCE}"
 
 # List all topics
 echo "📋 Current topics:"
-kafka-topics.sh --list ${KAFKA_ARGS}
+${KAFKA_CMD} --list ${BOOTSTRAP_ARG}
 
 echo ""
 echo "✅ All topics created successfully!"
