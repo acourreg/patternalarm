@@ -1,0 +1,18 @@
+{
+  "type": "record",
+  "name": "Alert",
+  "namespace": "com.patternalarm.flinkprocessor.model",
+  "doc": "Alert summary (fraud_alerts table)",
+  "fields": [
+    {"name": "alertId", "type": "int"},
+    {"name": "alertType", "type": "string"},
+    {"name": "domain", "type": "string"},
+    {"name": "actorId", "type": "string"},
+    {"name": "severity", "type": "string"},
+    {"name": "fraudScore", "type": "int"},
+    {"name": "transactionCount", "type": "int"},
+    {"name": "totalAmount", "type": "double"},
+    {"name": "firstSeen", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+    {"name": "lastSeen", "type": {"type": "long", "logicalType": "timestamp-millis"}}
+  ]
+}
