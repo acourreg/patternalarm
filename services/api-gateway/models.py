@@ -1,8 +1,5 @@
-"""
-Pydantic models for request/response validation
-"""
 from typing import List, Dict, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 
 
@@ -10,25 +7,44 @@ from datetime import datetime
 # MODEL SERVING (Flink → FastAPI)
 # ============================================================================
 
-# ============================================================================
-# MODEL SERVING (Flink → FastAPI)
-# ============================================================================
-
-class TransactionInput(BaseModel):
-    """Individual transaction in the window"""
+class TransactionEvent(BaseModel):
+    """
+    Full transaction event from Flink
+    Contains all fields from Kafka (FastAPI ignores extras it doesn't need)
+    """
+    # Common fields (all domains)
     transaction_id: str
     timestamp: datetime
     amount: float
-    ip_address: Optional[str] = None
+    ip_address: str
+    
+    # Optional domain-specific fields (ignored if not needed)
     device_id: Optional[str] = None
+    device_fingerprint: Optional[str] = None
+    
+    # Config to ignore extra fields from Flink
+    model_config = ConfigDict(extra="ignore")
+
+
+class TimeWindowAggregate(BaseModel):
+    """
+    Aggregated window data from Flink
+    Matches Flink's TimeWindowAggregate case class
+    """
+    actor_id: str
+    domain: str
+    transaction_count: int
+    total_amount: float
+    window_start: datetime
+    window_end: datetime
+    transactions: List[TransactionEvent]
 
 
 class PredictRequest(BaseModel):
     """
-    Aggregated window features + raw transactions
-    Sent by Flink for ML scoring
+    Request payload for ML prediction
+    Can accept either TimeWindowAggregate or individual fields
     """
-    # Aggregated features (calculated by Flink)
     actor_id: str
     domain: str
     transaction_count: int
@@ -36,9 +52,7 @@ class PredictRequest(BaseModel):
     time_delta_sec: int
     window_start: datetime
     window_end: datetime
-
-    # Raw transactions in this window
-    transactions: List[TransactionInput]
+    transactions: List[TransactionEvent]
 
 
 class PredictResponse(BaseModel):
@@ -46,8 +60,7 @@ class PredictResponse(BaseModel):
     fraud_score: int
     model_version: str = "v1.0-mocked"
     inference_time_ms: int = 12
-    transactions_analyzed: int  # How many transactions were in the window
-
+    transactions_analyzed: int
 
 
 # ============================================================================
@@ -64,18 +77,57 @@ class HealthResponse(BaseModel):
     timestamp: datetime
 
 
-class Transaction(BaseModel):
-    """Transaction detail nested in alert"""
+class TransactionEvent(BaseModel):
+    """
+    Raw transaction from Kafka - matches Scala TransactionEvent EXACTLY
+    Stored in suspicious_transactions table
+    """
+    # === Common fields (all domains) ===
     transaction_id: str
-    actor_id: str
     domain: str
+    test_id: str
     timestamp: datetime
+    actor_id: str
     amount: float
-    transaction_data: Dict
+    currency: str
+    ip_address: str
+
+    # Pattern metadata
+    pattern: str
+    is_fraud: bool
+    sequence_position: int
+
+    # === Gaming-specific fields ===
+    player_id: Optional[str] = None
+    game_id: Optional[str] = None
+    item_type: Optional[str] = None
+    item_name: Optional[str] = None
+    payment_method: Optional[str] = None
+    device_id: Optional[str] = None
+    session_length_sec: Optional[int] = None
+
+    # === Fintech-specific fields ===
+    account_from: Optional[str] = None
+    account_to: Optional[str] = None
+    transfer_type: Optional[str] = None
+    country_from: Optional[str] = None
+    country_to: Optional[str] = None
+    purpose: Optional[str] = None
+
+    # === Ecommerce-specific fields ===
+    user_id: Optional[str] = None
+    cart_items: Optional[str] = None  # JSON string array
+    shipping_address: Optional[str] = None
+    billing_address: Optional[str] = None
+    device_fingerprint: Optional[str] = None
+    session_duration_sec: Optional[int] = None
 
 
 class Alert(BaseModel):
-    """Alert summary"""
+    """
+    Alert summary (first table: fraud_alerts)
+    Matches Scala FraudAlert
+    """
     alert_id: int
     alert_type: str
     domain: str
@@ -89,8 +141,11 @@ class Alert(BaseModel):
 
 
 class AlertDetail(Alert):
-    """Alert with nested transactions and metadata"""
-    transactions: List[Transaction]
+    """
+    Alert with embedded transactions and metadata
+    Used for API responses with full details
+    """
+    transactions: List[TransactionEvent]
     metadata: Dict
 
 
