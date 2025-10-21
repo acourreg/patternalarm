@@ -56,8 +56,8 @@ class StreamProcessorJob(
     ).asInstanceOf[DataStream[(TimedWindowAggregate, PredictResponse)]]
       .map(new ScoreLogger)
       .filter(new HighRiskFilter)
-      .map(new AlertBuilder)
-      .map(new AlertLogger)
+      .map(new AlertDetailBuilder) // ✅ Changed from AlertBuilder
+      .map(new AlertDetailLogger) // ✅ Changed from AlertLogger
       .addSink(alertSink)
 
     println("✅ Starting Flink job execution...")
@@ -88,7 +88,6 @@ object StreamProcessorJob {
     val env = StreamExecutionEnvironment.getExecutionEnvironment
     env.enableCheckpointing(Config.Flink.checkpointingIntervalMs)
 
-    // ✅ Register custom Kryo serializers for Java 9+ compatibility
     env.getConfig.registerTypeWithKryoSerializer(
       classOf[Instant],
       classOf[InstantSerializer]
@@ -132,19 +131,24 @@ object StreamProcessorJob {
     response.fraudScore >= Config.Flink.FraudDetection.scoreThreshold
   }
 
-  private[flinkprocessor] def buildAlert(aggregate: TimedWindowAggregate, response: PredictResponse): Alert =
-    Alert(
-      alertId = 0,
-      alertType = determineAlertType(aggregate),
-      domain = aggregate.domain,
-      actorId = aggregate.actorId,
-      severity = determineSeverity(response.fraudScore),
-      fraudScore = response.fraudScore,
-      transactionCount = aggregate.transactionCount,
-      totalAmount = aggregate.totalAmount,
-      firstSeen = aggregate.windowStart,
-      lastSeen = aggregate.windowEnd
-    )
+  private[flinkprocessor] def buildAlertDetail(
+    aggregate: TimedWindowAggregate,
+    response: PredictResponse
+  ): AlertDetail = AlertDetail(
+    alertId = 0,
+    alertType = determineAlertType(aggregate),
+    domain = aggregate.domain,
+    actorId = aggregate.actorId,
+    severity = determineSeverity(response.fraudScore),
+    fraudScore = response.fraudScore,
+    transactionCount = aggregate.transactionCount,
+    totalAmount = aggregate.totalAmount,
+    firstSeen = aggregate.windowStart,
+    lastSeen = aggregate.windowEnd,
+    transactions = aggregate.transactions,
+    modelVersion = response.modelVersion,
+    inferenceTimeMs = response.inferenceTimeMs
+  )
 
   private[flinkprocessor] def determineAlertType(aggregate: TimedWindowAggregate): String = {
     val fraudPatterns = aggregate.transactions
@@ -196,8 +200,8 @@ class ScoreLogger
 }
 
 @SerialVersionUID(103L)
-class AlertLogger extends MapFunction[Alert, Alert] {
-  override def map(alert: Alert): Alert = {
+class AlertDetailLogger extends MapFunction[AlertDetail, AlertDetail] {
+  override def map(alert: AlertDetail): AlertDetail = {
     println(s"🚨 ALERT: ${alert.severity} - actor=${alert.actorId}, score=${alert.fraudScore}, type=${alert.alertType}")
     alert
   }
@@ -210,9 +214,9 @@ class HighRiskFilter extends FilterFunction[(TimedWindowAggregate, PredictRespon
 }
 
 @SerialVersionUID(105L)
-class AlertBuilder extends MapFunction[(TimedWindowAggregate, PredictResponse), Alert] {
-  override def map(tuple: (TimedWindowAggregate, PredictResponse)): Alert = {
+class AlertDetailBuilder extends MapFunction[(TimedWindowAggregate, PredictResponse), AlertDetail] {
+  override def map(tuple: (TimedWindowAggregate, PredictResponse)): AlertDetail = {
     val (aggregate, response) = tuple
-    StreamProcessorJob.buildAlert(aggregate, response)
+    StreamProcessorJob.buildAlertDetail(aggregate, response)
   }
 }
