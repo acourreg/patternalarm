@@ -15,7 +15,7 @@ import java.util
 import java.util.concurrent.{CompletableFuture, TimeUnit}
 import scala.collection.JavaConverters._
 
-class FraudScoringAsyncFunctionSpec extends AnyFlatSpec with Matchers with BeforeAndAfterAll {
+class FraudScoringAsyncFunctionTest extends AnyFlatSpec with Matchers with BeforeAndAfterAll {
 
   // Mock HTTP server
   private val wireMockServer = new WireMockServer(wireMockConfig().dynamicPort())
