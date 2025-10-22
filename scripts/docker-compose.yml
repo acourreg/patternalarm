@@ -15,6 +15,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - patternalarm
 
   kafka:
     image: confluentinc/cp-kafka:7.5.0
@@ -39,3 +41,33 @@ services:
       interval: 10s
       timeout: 10s
       retries: 5
+    networks:
+      - patternalarm
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: patternalarm
+      POSTGRES_USER: dbadmin
+      POSTGRES_PASSWORD: password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # ✅ Correct path: sql/ is in same directory as docker-compose.yml
+      - ./sql/2-rds-schema.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dbadmin -d patternalarm"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - patternalarm
+
+volumes:
+  postgres_data:
+
+networks:
+  patternalarm:
+    driver: bridge
