@@ -49,7 +49,7 @@ class StreamProcessorJobTest extends AnyFlatSpec with Matchers {
     }
 
     val mockAsyncFunction = new MockHighScoreAsyncFunction()
-    val mockSink = new MockAlertSink()  // ✅ Plus de paramètre!
+    val mockSink = new MockAlertSink()
 
     val job = new StreamProcessorJob(
       mockEnvProvider,
@@ -287,29 +287,18 @@ class MockLowScoreAsyncFunction extends FraudScoringAsyncFunction("mock_low_scor
 
 @SerialVersionUID(3L)
 class MockAlertSink() extends FraudAlertSink("test", "test", "test") {
-  override def invoke(value: AlertDetail, context: SinkFunction.Context): Unit = {  // ✅ Changed to AlertDetail
-    println(s"\n🚨 ALERT CAPTURED:")
-    println(s"   ├─ Type: ${value.alertType}")
-    println(s"   ├─ Actor: ${value.actorId}")
-    println(s"   ├─ Score: ${value.fraudScore}")
-    println(s"   ├─ Severity: ${value.severity}")
-    println(s"   ├─ Transaction Count: ${value.transactionCount}")
-    println(s"   ├─ Total Amount: ${value.totalAmount}")
-    println(s"   └─ Transactions: ${value.transactions.size}")  // ✅ Added
+  // ✅ Now accepts (Alert, Seq[TransactionEvent])
+  override def invoke(value: (Alert, Seq[TransactionEvent]), context: SinkFunction.Context): Unit = {
+    val (alert, transactions) = value
 
-    // ✅ Convert AlertDetail to Alert for test collector
-    val alert = Alert(
-      alertId = value.alertId.toInt,
-      alertType = value.alertType,
-      domain = value.domain,
-      actorId = value.actorId,
-      severity = value.severity,
-      fraudScore = value.fraudScore,
-      transactionCount = value.transactionCount,
-      totalAmount = value.totalAmount,
-      firstSeen = value.firstSeen,
-      lastSeen = value.lastSeen
-    )
+    println(s"\n🚨 ALERT CAPTURED:")
+    println(s"   ├─ Type: ${alert.alertType}")
+    println(s"   ├─ Actor: ${alert.actorId}")
+    println(s"   ├─ Score: ${alert.fraudScore}")
+    println(s"   ├─ Severity: ${alert.severity}")
+    println(s"   ├─ Transaction Count: ${alert.transactionCount}")
+    println(s"   ├─ Total Amount: ${alert.totalAmount}")
+    println(s"   └─ Transactions: ${transactions.size}")
 
     TestAlertCollector.add(alert)
   }
