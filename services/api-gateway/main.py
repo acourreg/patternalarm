@@ -8,10 +8,10 @@ from datetime import datetime, timedelta
 import random
 from typing import Optional
 
-from models import (
+from src.models.api_models import (
     PredictRequest, PredictResponse,
     HealthResponse, AlertsResponse, Alert, AlertDetail,
-    AnalyticsSummary, DomainAnalytics, Transaction
+    AnalyticsSummary, DomainAnalytics, TransactionEvent
 )
 
 app = FastAPI(
@@ -204,44 +204,45 @@ async def root():
 # MOCK DATA GENERATORS
 # ============================================================================
 
-def generate_mock_transactions(count: int, actor_id: str, domain: str) -> list[Transaction]:
-    """Generate mock transactions for an alert"""
+def generate_mock_transactions(count: int, actor_id: str, domain: str) -> list[TransactionEvent]:
+    """Generate mock TransactionEvent objects"""
     transactions = []
     base_time = datetime.now() - timedelta(minutes=5)
 
     for i in range(count):
-        transactions.append(Transaction(
-            transaction_id=f"TXN{random.randint(10000, 99999)}",
-            actor_id=actor_id,
+        transactions.append(TransactionEvent(
+            transactionId=f"TXN{random.randint(10000, 99999)}",  # ✅ camelCase
             domain=domain,
+            testId="mock-test",  # ✅ camelCase
             timestamp=base_time + timedelta(seconds=i * 30),
+            actorId=actor_id,  # ✅ camelCase
             amount=round(random.uniform(50, 500), 2),
-            transaction_data={
-                "ip_address": f"45.142.{random.randint(1, 255)}.{random.randint(1, 255)}",
-                "device_id": f"DEV{random.randint(1000, 9999)}",
-                "payment_method": random.choice(["credit_card", "paypal", "crypto"])
-            }
+            currency="USD",
+            ipAddress=f"45.142.{random.randint(1, 255)}.{random.randint(1, 255)}",  # ✅ camelCase
+            pattern=random.choice(["velocity_spike", "regular"]),
+            isFraud=random.choice([True, False]),  # ✅ camelCase
+            sequencePosition=i  # ✅ camelCase
         ))
     return transactions
 
 
 def generate_mock_alert(alert_id: int) -> Alert:
-    """Generate a single mock alert"""
+    """Generate a single mock Alert"""
     domain = random.choice(["gaming", "ecommerce", "fintech"])
     severity = random.choice(["CRITICAL", "HIGH", "MEDIUM", "LOW"])
     actor_id = f"A{random.randint(100000, 999999)}"
 
     return Alert(
-        alert_id=alert_id,
-        alert_type=random.choice(["velocity_spike", "account_takeover", "suspicious_amount"]),
+        alertId=alert_id,  # ✅ camelCase
+        alertType=random.choice(["velocity_spike", "account_takeover", "suspicious_amount"]),
         domain=domain,
-        actor_id=actor_id,
+        actorId=actor_id,  # ✅ camelCase
         severity=severity,
-        fraud_score=random.randint(60, 95),
-        transaction_count=random.randint(3, 8),
-        total_amount=round(random.uniform(200, 2000), 2),
-        first_seen=datetime.now() - timedelta(minutes=random.randint(5, 30)),
-        last_seen=datetime.now() - timedelta(minutes=random.randint(0, 5))
+        fraudScore=random.randint(60, 95),  # ✅ camelCase
+        transactionCount=random.randint(3, 8),  # ✅ camelCase
+        totalAmount=round(random.uniform(200, 2000), 2),  # ✅ camelCase
+        firstSeen=datetime.now() - timedelta(minutes=random.randint(5, 30)),  # ✅ camelCase
+        lastSeen=datetime.now() - timedelta(minutes=random.randint(0, 5))  # ✅ camelCase
     )
 
 
