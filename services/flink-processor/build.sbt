@@ -9,32 +9,49 @@ val flinkVersion = "1.18.0"
 val jacksonVersion = "2.15.2"
 val scalaTestVersion = "3.2.17"
 
-// ========== Avro Code Generation ==========
+// ========== Avro Code Generation (Manual Task Only) ==========
 enablePlugins(SbtAvrohugger)
 
-val projectRoot = Paths.get("").toAbsolutePath.getParent.getParent
-val schemasDir = projectRoot.resolve("scripts/schemas/avro").toFile
+// Manual task to generate Avro classes (only when schemas change)
+lazy val avroGenerate = taskKey[Unit]("Generate Scala classes from Avro schemas")
 
-Compile / avroSourceDirectories := Seq(schemasDir)
+avroGenerate := {
+  val projectRoot = Paths.get("").toAbsolutePath.getParent.getParent
+  val schemasDir = projectRoot.resolve("scripts/schemas/avro").toFile
+  
+  if (!schemasDir.exists()) {
+    println(s"[WARN] Avro schemas directory not found: ${schemasDir.getAbsolutePath}")
+    println("[WARN] Skipping Avro generation. Run this task from project root context.")
+  } else {
+    println(s"[INFO] Generating Avro classes from: ${schemasDir.getAbsolutePath}")
+    
+    // Temporarily set avro source directory
+    (Compile / avroSourceDirectories) := Seq(schemasDir)
+    
+    // Copy generated files to src/main/scala
+    val srcManaged = (Compile / sourceManaged).value / "main" / "compiled_avro" / "com" / "patternalarm" / "flinkprocessor" / "model"
+    val targetDir = (Compile / scalaSource).value / "com" / "patternalarm" / "flinkprocessor" / "model"
 
-// Auto-copy generated Avro models to src/main/scala
-Compile / compile := (Compile / compile).dependsOn(Def.task {
-  val srcManaged = (Compile / sourceManaged).value / "main" / "compiled_avro" / "com" / "patternalarm" / "flinkprocessor" / "model"
-  val targetDir = (Compile / scalaSource).value / "com" / "patternalarm" / "flinkprocessor" / "model"
+    if (srcManaged.exists()) {
+      val customFiles = Set("TimedWindowAggregate.scala", "PredictRequest.scala", "PredictResponse.scala")
 
-  if (srcManaged.exists()) {
-    val customFiles = Set("TimedWindowAggregate.scala", "PredictRequest.scala", "PredictResponse.scala")
+      IO.createDirectory(targetDir)
+      if (targetDir.exists()) {
+        (targetDir * "*.scala").get.filterNot(f => customFiles.contains(f.getName)).foreach(IO.delete)
+      }
 
-    IO.createDirectory(targetDir)
-    if (targetDir.exists()) {
-      (targetDir * "*.scala").get.filterNot(f => customFiles.contains(f.getName)).foreach(IO.delete)
+      (srcManaged * "*.scala").get.foreach { file =>
+        IO.copyFile(file, targetDir / file.getName)
+        println(s"[INFO] Generated: ${file.getName}")
+      }
     }
-
-    (srcManaged * "*.scala").get.foreach { file =>
-      IO.copyFile(file, targetDir / file.getName)
-    }
+    
+    println("[INFO] Avro generation complete")
   }
-}).value
+}
+
+// Don't trigger Avro generation during normal build
+Compile / avroSourceDirectories := Seq.empty
 
 // ========== Dependencies ==========
 libraryDependencies ++= Seq(
