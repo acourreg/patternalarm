@@ -22,12 +22,14 @@
     {"name": "modelVersion", "type": ["null", "string"], "default": null, "doc": "ML model version"},
     {"name": "inferenceTimeMs", "type": ["null", "int"], "default": null, "doc": "ML inference time (ms)"},
     
+    // Gaming
     {"name": "playerId", "type": ["null", "string"], "default": null, "doc": "Gaming: Player ID"},
     {"name": "gameId", "type": ["null", "string"], "default": null, "doc": "Gaming: Game ID"},
     {"name": "itemType", "type": ["null", "string"], "default": null, "doc": "Gaming: Item type"},
     {"name": "itemName", "type": ["null", "string"], "default": null, "doc": "Gaming: Item name"},
     {"name": "sessionLengthSec", "type": ["null", "int"], "default": null, "doc": "Gaming: Session length"},
     
+    // Fintech
     {"name": "accountFrom", "type": ["null", "string"], "default": null, "doc": "Fintech: Source account"},
     {"name": "accountTo", "type": ["null", "string"], "default": null, "doc": "Fintech: Destination account"},
     {"name": "transferType", "type": ["null", "string"], "default": null, "doc": "Fintech: Transfer type"},
@@ -35,6 +37,7 @@
     {"name": "countryTo", "type": ["null", "string"], "default": null, "doc": "Fintech: Destination country"},
     {"name": "purpose", "type": ["null", "string"], "default": null, "doc": "Fintech: Transaction purpose"},
     
+    // Ecommerce
     {"name": "userId", "type": ["null", "string"], "default": null, "doc": "Ecommerce: User ID"},
     {"name": "cartItems", "type": ["null", "string"], "default": null, "doc": "Ecommerce: Cart items (JSON string)"},
     {"name": "shippingAddress", "type": ["null", "string"], "default": null, "doc": "Ecommerce: Shipping address"},

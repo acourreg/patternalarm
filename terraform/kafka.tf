@@ -3,7 +3,7 @@ resource "aws_msk_cluster" "main" {
   kafka_version          = "3.6.0"
   
   # DEV: 1 broker, t3.small (~$50/month)
-  number_of_broker_nodes = 1
+  number_of_broker_nodes = 2
   # DEMO: 3 brokers, m7g.large (~$600/month)
   # number_of_broker_nodes = 3
   
@@ -14,7 +14,11 @@ resource "aws_msk_cluster" "main" {
     # instance_type = "kafka.m7g.large"
     
     # DEV
-    client_subnets = [aws_subnet.private.id]
+    client_subnets = [
+      aws_subnet.private.id,      # us-east-1a
+      aws_subnet.private_b.id     # us-east-1b
+    ]
+
     # DEMO
     # client_subnets = [
     #   aws_subnet.private.id,
