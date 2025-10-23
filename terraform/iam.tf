@@ -111,3 +111,41 @@ resource "aws_iam_role_policy" "ecs_task" {
     ]
   })
 }
+
+resource "aws_iam_role_policy" "codebuild_ecs_deploy" {
+  name = "codebuild-ecs-deploy"
+  role = aws_iam_role.codebuild.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ecs:UpdateService",
+          "ecs:DescribeServices"
+        ]
+        Resource = "arn:aws:ecs:us-east-1:810729346256:service/patternalarm-cluster/*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "ecs_task_execution_ssm" {
+  name = "ecs-task-execution-ssm"
+  role = aws_iam_role.ecs_task_execution.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ssm:GetParameters",
+          "ssm:GetParameter"
+        ]
+        Resource = aws_ssm_parameter.db_password.arn
+      }
+    ]
+  })
+}

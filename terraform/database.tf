@@ -35,3 +35,15 @@ resource "aws_db_instance" "main" {
     Name = "${var.project_name}-rds"
   }
 }
+
+# Store DB password in SSM Parameter Store
+resource "aws_ssm_parameter" "db_password" {
+  name        = "/patternalarm/db-password"
+  description = "RDS database password"
+  type        = "SecureString"
+  value       = var.db_password
+
+  tags = {
+    Name = "${var.project_name}-db-password"
+  }
+}
