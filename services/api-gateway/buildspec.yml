@@ -24,13 +24,6 @@ phases:
       - docker push $REPOSITORY_URI:$IMAGE_TAG
       - docker push $REPOSITORY_URI:$COMMIT_HASH
       - echo Image pushed to $REPOSITORY_URI:$IMAGE_TAG
-
-      # Deploy to ECS
       - echo Deploying to ECS...
-      - |
-        aws ecs update-service \
-          --cluster $ECS_CLUSTER_NAME \
-          --service $ECS_SERVICE_NAME \
-          --force-new-deployment \
-          --region $AWS_DEFAULT_REGION
+      - aws ecs update-service --cluster patternalarm-cluster --service patternalarm-api-gateway --force-new-deployment --region us-east-1
       - echo Deployment triggered successfully
