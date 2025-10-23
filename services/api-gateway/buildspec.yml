@@ -8,7 +8,7 @@ phases:
       - REPOSITORY_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME
       - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
       - IMAGE_TAG=${IMAGE_TAG:-latest}
-      
+
   build:
     commands:
       - echo Build started on `date`
@@ -16,7 +16,7 @@ phases:
       - cd services/api-gateway
       - docker build -t $REPOSITORY_URI:$IMAGE_TAG .
       - docker tag $REPOSITORY_URI:$IMAGE_TAG $REPOSITORY_URI:$COMMIT_HASH
-      
+
   post_build:
     commands:
       - echo Build completed on `date`
@@ -24,3 +24,13 @@ phases:
       - docker push $REPOSITORY_URI:$IMAGE_TAG
       - docker push $REPOSITORY_URI:$COMMIT_HASH
       - echo Image pushed to $REPOSITORY_URI:$IMAGE_TAG
+
+      # Deploy to ECS
+      - echo Deploying to ECS...
+      - |
+        aws ecs update-service \
+          --cluster $ECS_CLUSTER_NAME \
+          --service $ECS_SERVICE_NAME \
+          --force-new-deployment \
+          --region $AWS_DEFAULT_REGION
+      - echo Deployment triggered successfully
