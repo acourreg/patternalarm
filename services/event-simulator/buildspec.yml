@@ -33,18 +33,15 @@ phases:
 
   post_build:
     commands:
-      - echo Deploying to Lambda functions...
+      - echo Deploying to Lambda function...
       - |
-        # Deploy to each Lambda function
-        for DOMAIN in gaming ecommerce banking; do
-          FUNCTION_NAME="$PROJECT_NAME-${DOMAIN}-generator"
-          echo "Updating $FUNCTION_NAME..."
-          
-          aws lambda update-function-code \
-            --function-name $FUNCTION_NAME \
-            --zip-file fileb://lambda-deployment.zip \
-            --region $AWS_DEFAULT_REGION
-          
-          echo "✅ $FUNCTION_NAME updated"
-        done
+        FUNCTION_NAME="$PROJECT_NAME-event-generator"
+        echo "Updating $FUNCTION_NAME..."
+        
+        aws lambda update-function-code \
+          --function-name $FUNCTION_NAME \
+          --zip-file fileb://lambda-deployment.zip \
+          --region $AWS_DEFAULT_REGION
+        
+        echo "✅ $FUNCTION_NAME updated successfully"
       - echo Deployment completed on `date`
