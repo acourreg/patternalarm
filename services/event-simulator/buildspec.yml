@@ -1,0 +1,22 @@
+# 1. Copie les nouveaux fichiers Terraform
+cp /path/to/lambda.tf terraform/
+cp /path/to/codebuild-updated.tf terraform/codebuild.tf  # Remplace l'ancien
+
+# 2. Crée le placeholder Lambda
+cd terraform
+echo '# placeholder' > lambda_placeholder.py
+zip lambda-placeholder.zip lambda_placeholder.py
+rm lambda_placeholder.py
+
+# 3. Copie le buildspec Lambda
+mkdir -p services/event-simulator
+cp /path/to/buildspec-lambda.yml services/event-simulator/buildspec.yml
+
+# 4. Apply Terraform
+terraform init  # Si besoin de refresh les providers
+terraform apply
+
+# 5. Commit et push pour déclencher le build
+git add .
+git commit -m "add Lambda deployment with CodeBuild"
+git push
