@@ -1,22 +1,50 @@
-# 1. Copie les nouveaux fichiers Terraform
-cp /path/to/lambda.tf terraform/
-cp /path/to/codebuild-updated.tf terraform/codebuild.tf  # Remplace l'ancien
+version: 0.2
 
-# 2. Crée le placeholder Lambda
-cd terraform
-echo '# placeholder' > lambda_placeholder.py
-zip lambda-placeholder.zip lambda_placeholder.py
-rm lambda_placeholder.py
+phases:
+  pre_build:
+    commands:
+      - echo Building Lambda deployment package...
+      - cd services/event-simulator
 
-# 3. Copie le buildspec Lambda
-mkdir -p services/event-simulator
-cp /path/to/buildspec-lambda.yml services/event-simulator/buildspec.yml
+  build:
+    commands:
+      - echo Build started on `date`
+      - |
+        # Clean previous build
+        rm -rf package lambda-deployment.zip
+        
+        # Create package directory
+        mkdir -p package
+        
+        # Install dependencies
+        pip install -r requirements.txt -t package/
+        
+        # Copy source files
+        cp src/*.py package/
+        cp -r src/generators package/
+        
+        # Create zip
+        cd package
+        zip -r ../lambda-deployment.zip . -x "*.pyc" -x "__pycache__/*"
+        cd ..
+        
+      - echo Package created successfully
+      - ls -lh lambda-deployment.zip
 
-# 4. Apply Terraform
-terraform init  # Si besoin de refresh les providers
-terraform apply
-
-# 5. Commit et push pour déclencher le build
-git add .
-git commit -m "add Lambda deployment with CodeBuild"
-git push
+  post_build:
+    commands:
+      - echo Deploying to Lambda functions...
+      - |
+        # Deploy to each Lambda function
+        for DOMAIN in gaming ecommerce banking; do
+          FUNCTION_NAME="$PROJECT_NAME-${DOMAIN}-generator"
+          echo "Updating $FUNCTION_NAME..."
+          
+          aws lambda update-function-code \
+            --function-name $FUNCTION_NAME \
+            --zip-file fileb://lambda-deployment.zip \
+            --region $AWS_DEFAULT_REGION
+          
+          echo "✅ $FUNCTION_NAME updated"
+        done
+      - echo Deployment completed on `date`
