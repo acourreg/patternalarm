@@ -40,7 +40,7 @@ locals {
     dashboard = {
       cpu           = 256   # 0.25 vCPU - UI statique
       memory        = 512   # 0.5 GB - Spring Boot minimal
-      port          = 8082
+      port          = 8080
       desired_count = 1
     }
   }

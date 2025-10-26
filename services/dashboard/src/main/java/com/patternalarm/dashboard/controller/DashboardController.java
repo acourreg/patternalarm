@@ -2,6 +2,7 @@ package com.patternalarm.dashboard.controller;
 
 import com.patternalarm.dashboard.service.DashboardService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -13,6 +14,18 @@ import java.util.Map;
 public class DashboardController {
 
     private final DashboardService dashboardService;
+
+    /**
+     * Health check endpoint for ALB
+     */
+    @GetMapping("/health")
+    @ResponseBody
+    public ResponseEntity<Map<String, String>> health() {
+        return ResponseEntity.ok(Map.of(
+                "status", "UP",
+                "service", "dashboard"
+        ));
+    }
 
     /**
      * AC1.1: Main Dashboard Page
