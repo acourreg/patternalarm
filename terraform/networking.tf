@@ -30,6 +30,18 @@ resource "aws_subnet" "public" {
   }
 }
 
+resource "aws_subnet" "public_b" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.2.0/24"
+  availability_zone       = "us-east-1b"
+  map_public_ip_on_launch = true
+  
+  tags = {
+    Name = "${var.project_name}-public-subnet-b"
+  }
+}
+
+
 # Private Subnet
 resource "aws_subnet" "private" {
   vpc_id            = aws_vpc.main.id
@@ -75,6 +87,12 @@ resource "aws_route_table" "public" {
     Name = "${var.project_name}-public-rt"
   }
 }
+
+resource "aws_route_table_association" "public_b" {
+  subnet_id      = aws_subnet.public_b.id
+  route_table_id = aws_route_table.public.id
+}
+
 
 # Private Route Table
 resource "aws_route_table" "private" {
