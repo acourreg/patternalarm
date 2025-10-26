@@ -7,7 +7,7 @@ COPY src src
 RUN gradle bootJar --no-daemon
 
 # Stage 2: Runtime
-FROM public.ecr.aws/amazoncorretto/amazoncorretto:17-alpine
+FROM public.ecr.aws/amazoncorretto/amazoncorretto:17
 WORKDIR /app
 COPY --from=builder /build/build/libs/*.jar app.jar
 
