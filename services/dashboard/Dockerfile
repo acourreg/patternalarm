@@ -1,5 +1,5 @@
 # Stage 1: Build
-FROM gradle:8.5-jdk17-alpine AS builder
+FROM public.ecr.aws/docker/library/gradle:8.5-jdk17-alpine AS builder
 WORKDIR /build
 COPY build.gradle.kts settings.gradle.kts ./
 COPY gradle gradle
@@ -7,7 +7,7 @@ COPY src src
 RUN gradle bootJar --no-daemon
 
 # Stage 2: Runtime
-FROM eclipse-temurin:17-jre-alpine
+FROM public.ecr.aws/amazoncorretto/amazoncorretto:17-alpine
 WORKDIR /app
 COPY --from=builder /build/build/libs/*.jar app.jar
 
