@@ -14,7 +14,7 @@ logger.setLevel(logging.INFO)
 def lambda_handler(event, context):
     """Lambda entry point"""
     try:
-        test_id = event.get('test_id', f"test-{context.request_id[:8]}")
+        test_id = event.get('test_id', f"test-{context.aws_request_id[:8]}")
         domain = event.get('domain', 'gaming')
         load_level_str = event.get('load_level', 'normal')
 
