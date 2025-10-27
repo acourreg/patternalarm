@@ -124,8 +124,8 @@ object StreamProcessorJob {
     // Start embedded health check server
     val healthCheckThread = new Thread(() => {
       try {
-        val serverSocket = new java.net.ServerSocket(8080)
-        println("✅ Health check server listening on port 8080")
+        val serverSocket = new java.net.ServerSocket(8081)
+        println("✅ Health check server listening on port 8081")
         while (true) {
           val socket = serverSocket.accept()
           val out = new java.io.PrintWriter(socket.getOutputStream, true)
