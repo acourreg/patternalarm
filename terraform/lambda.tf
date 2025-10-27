@@ -1,17 +1,36 @@
-resource "aws_lambda_function" "event_generator" {
-  # Utilise placeholder pour création initiale (CodeBuild déploiera le vrai code)
-  filename         = "lambda-placeholder.zip"
-  source_code_hash = filebase64sha256("lambda-placeholder.zip")
+# Lambda Event Generator
+# Uses IAM role from iam.tf, CodeBuild deploys real code
+
+# Génère un zip stub automatiquement
+data "archive_file" "lambda_stub" {
+  type        = "zip"
+  output_path = "${path.module}/lambda-stub.zip"
   
+  source {
+    content  = "def handler(event, context): return {'statusCode': 200, 'body': 'Placeholder - deploy via CodeBuild'}"
+    filename = "lambda_handler.py"
+  }
+}
+
+# Lambda Function
+resource "aws_lambda_function" "event_generator" {
   function_name = "${var.project_name}-event-generator"
-  role          = aws_iam_role.lambda_exec.arn
-  handler       = "lambda_handler.lambda_handler"
+  role          = aws_iam_role.lambda_exec.arn  # Uses existing role from iam.tf
+  handler       = "lambda_handler.handler"  # Stub handler (sera écrasé par CodeBuild)
   runtime       = "python3.11"
   timeout       = 300
-  memory_size   = 512  # 512 MB suffit largement
+  memory_size   = 512
+  
+  # Stub zip (sera écrasé par CodeBuild)
+  filename         = data.archive_file.lambda_stub.output_path
+  source_code_hash = data.archive_file.lambda_stub.output_base64sha256
 
   vpc_config {
-    subnet_ids         = [aws_subnet.private.id]
+    subnet_ids = [
+      aws_subnet.private.id,
+      aws_subnet.private_b.id,
+      aws_subnet.private_c.id
+    ]
     security_group_ids = [aws_security_group.lambda.id]
   }
 
@@ -26,6 +45,7 @@ resource "aws_lambda_function" "event_generator" {
     ignore_changes = [
       filename,
       source_code_hash,
+      handler,
       last_modified
     ]
   }
@@ -45,7 +65,7 @@ resource "aws_cloudwatch_log_group" "lambda_generator" {
   }
 }
 
-# Output
+# Outputs
 output "lambda_function_name" {
   value       = aws_lambda_function.event_generator.function_name
   description = "Lambda event generator function name"

@@ -1,8 +1,25 @@
+# MSK Configuration with auto-create topics enabled
+resource "aws_msk_configuration" "main" {
+  name              = "${var.project_name}-msk-config"
+  kafka_versions    = ["3.6.0"]
+  
+  server_properties = <<PROPERTIES
+auto.create.topics.enable=true
+default.replication.factor=2
+min.insync.replicas=1
+num.partitions=3
+log.retention.hours=168
+PROPERTIES
+
+  description = "MSK configuration with auto-create topics enabled"
+}
+
+# MSK Cluster
 resource "aws_msk_cluster" "main" {
   cluster_name           = "${var.project_name}-msk-${var.random_suffix}"
   kafka_version          = "3.6.0"
   
-  # DEV: 1 broker, t3.small (~$50/month)
+  # DEV: 2 brokers, t3.small (~$50/month)
   number_of_broker_nodes = 2
   # DEMO: 3 brokers, m7g.large (~$600/month)
   # number_of_broker_nodes = 3
@@ -35,6 +52,12 @@ resource "aws_msk_cluster" "main" {
     security_groups = [aws_security_group.msk.id]
   }
   
+  # Apply custom configuration
+  configuration_info {
+    arn      = aws_msk_configuration.main.arn
+    revision = aws_msk_configuration.main.latest_revision
+  }
+  
   encryption_info {
     encryption_in_transit {
       client_broker = "PLAINTEXT"  # ✅ Dev mode - no auth needed
@@ -52,7 +75,13 @@ resource "aws_msk_cluster" "main" {
   }
 }
 
+# Outputs
 output "msk_bootstrap_brokers" {
   value       = aws_msk_cluster.main.bootstrap_brokers
   description = "MSK broker endpoints (plaintext)"
+}
+
+output "msk_cluster_arn" {
+  value       = aws_msk_cluster.main.arn
+  description = "MSK cluster ARN"
 }

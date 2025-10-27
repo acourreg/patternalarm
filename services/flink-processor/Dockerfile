@@ -1,7 +1,7 @@
 # ========================================
 # Stage 1: Builder - Compile and Package
 # ========================================
-FROM amazoncorretto:17 AS builder
+FROM public.ecr.aws/amazoncorretto/amazoncorretto:17 AS builder
 
 # Install wget and tar for SBT
 RUN yum install -y wget tar gzip && \
@@ -30,7 +30,7 @@ RUN ./sbt/bin/sbt assembly
 # ========================================
 # Stage 2: Runtime - Lightweight Image
 # ========================================
-FROM amazoncorretto:17
+FROM public.ecr.aws/amazoncorretto/amazoncorretto:17
 
 WORKDIR /app
 
