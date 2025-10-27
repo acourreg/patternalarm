@@ -80,6 +80,7 @@ object StreamProcessorJob {
 
   def main(args: Array[String]): Unit = {
     println("🚀 Starting PatternAlarm Fraud Detection Pipeline...")
+    startHealthCheck()
     new StreamProcessorJob().run(args)
   }
 
@@ -118,6 +119,31 @@ object StreamProcessorJob {
       Config.Database.user,
       Config.Database.password
     )
+
+  def startHealthCheck(): Unit = {
+    // Start embedded health check server
+    val healthCheckThread = new Thread(() => {
+      try {
+        val serverSocket = new java.net.ServerSocket(8080)
+        println("✅ Health check server listening on port 8080")
+        while (true) {
+          val socket = serverSocket.accept()
+          val out = new java.io.PrintWriter(socket.getOutputStream, true)
+          out.println("HTTP/1.1 200 OK")
+          out.println("Content-Type: text/plain")
+          out.println("Content-Length: 2")
+          out.println()
+          out.println("OK")
+          out.flush()
+          socket.close()
+        }
+      } catch {
+        case e: Exception => System.err.println(s"Health check server error: ${e.getMessage}")
+      }
+    })
+    healthCheckThread.setDaemon(true)
+    healthCheckThread.start()
+  }
 
   // ========== Domain Logic ==========
 
