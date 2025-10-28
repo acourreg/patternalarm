@@ -237,7 +237,7 @@ def parse_args():
                         help='Test duration in seconds (unused in Phase 1)')
     parser.add_argument('--kafka-bootstrap', default='localhost:9092',
                         help='Kafka bootstrap servers')
-    parser.add_argument('--kafka-topic', default='fraud-events-raw',
+    parser.add_argument('--kafka-topic', default='all-transactions',
                         help='Kafka topic name')
     parser.add_argument('--output', default='metrics.json',
                         help='Output file for metrics')

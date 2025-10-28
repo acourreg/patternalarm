@@ -29,7 +29,7 @@ def lambda_handler(event, context):
             load_level=load_level,
             duration_seconds=60,
             kafka_bootstrap=None,  # Let KafkaPublisher handle it
-            kafka_topic='fraud-events-raw'
+            kafka_topic='all-transactions'
         )
 
         return {

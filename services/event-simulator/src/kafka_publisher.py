@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class KafkaPublisher:
     """Publishes events to Kafka topics"""
 
-    def __init__(self, bootstrap_servers: str = None, topic: str = 'fraud-events-raw'):
+    def __init__(self, bootstrap_servers: str = None, topic: str = 'all-transactions'):
         # Single source for env var logic
         self.bootstrap_servers = (
             bootstrap_servers or
