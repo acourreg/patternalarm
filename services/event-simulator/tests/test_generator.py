@@ -43,7 +43,7 @@ def test_kafka_publisher():
     print("📨 Testing Kafka Publisher...")
 
     try:
-        publisher = KafkaPublisher('localhost:9092', 'fraud-events-raw')
+        publisher = KafkaPublisher('localhost:9092', 'all-transactions')
         print(f"   ✅ Connected to Kafka")
 
         gen = GamingGenerator('test-kafka')

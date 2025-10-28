@@ -133,6 +133,15 @@ resource "aws_security_group" "msk" {
     protocol        = "tcp"
     security_groups = [aws_security_group.lambda.id]
   }
+
+# TODO: Fixme - for facilitating dev/staging debugging - better would be through bastion
+  ingress {
+    description = "Kafka from VPC"
+    from_port   = 9092
+    to_port     = 9092
+    protocol    = "tcp"
+    cidr_blocks = [var.vpc_cidr]  # Entire VPC can access
+  }
   
   # Allow MSK inter-broker communication
   ingress {
