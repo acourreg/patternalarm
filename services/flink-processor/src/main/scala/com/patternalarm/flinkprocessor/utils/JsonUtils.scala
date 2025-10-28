@@ -1,6 +1,6 @@
 package com.patternalarm.flinkprocessor.utils
 
-import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper}
+import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper, PropertyNamingStrategies}
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 
@@ -17,6 +17,7 @@ object JsonUtils {
     m.registerModule(new JavaTimeModule())
     m.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false) // Ignore extra fields
     m.configure(DeserializationFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL, true)
+    m.setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
     m
   }
 

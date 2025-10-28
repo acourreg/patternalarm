@@ -24,12 +24,12 @@ class JsonUtilsTest extends AnyFlatSpec with Matchers {
   it should "deserialize JSON with extra fields (ignore unknown)" in {
     val jsonWithExtra =
       """{
-        |  "fraudScore": 75,
-        |  "modelVersion": "v1.0",
-        |  "inferenceTimeMs": 10,
-        |  "transactionsAnalyzed": 3,
-        |  "extraField": "should be ignored",
-        |  "anotherExtra": 999
+        |  "fraud_score": 75,
+        |  "model_version": "v1.0",
+        |  "inference_time_ms": 10,
+        |  "transactions_analyzed": 3,
+        |  "extra_field": "should be ignored",
+        |  "another_extra": 999
         |}""".stripMargin
 
     val result = JsonUtils.fromJson[PredictResponse](jsonWithExtra)
@@ -99,7 +99,8 @@ class JsonUtilsTest extends AnyFlatSpec with Matchers {
     )
 
     val json = JsonUtils.toJson(response)
-    json should include("fraudScore")
+    // With SNAKE_CASE naming strategy, it serializes to snake_case
+    json should include("fraud_score")
     json should include("90")
   }
 
@@ -109,5 +110,41 @@ class JsonUtilsTest extends AnyFlatSpec with Matchers {
     assertThrows[Exception] {
       JsonUtils.fromJson[PredictResponse](invalidJson)
     }
+  }
+
+  it should "deserialize snake_case JSON from Lambda/Kafka correctly" in {
+    // Real example from your Lambda event generator
+    val lambdaJson =
+      """{
+        |  "transaction_id": "TXN7G2K9P4L3M8N1",
+        |  "domain": "gaming",
+        |  "test_id": "test-integration",
+        |  "timestamp": "2025-10-15T22:31:10.123456+00:00",
+        |  "actor_id": "A123456",
+        |  "amount": 19.99,
+        |  "currency": "USD",
+        |  "ip_address": "192.168.1.45",
+        |  "pattern": "regular_casual_player",
+        |  "is_fraud": false,
+        |  "sequence_position": 0,
+        |  "player_id": "P123456",
+        |  "game_id": "FortniteClone",
+        |  "item_type": "skin",
+        |  "item_name": "Premium_skin_42",
+        |  "payment_method": "credit_card",
+        |  "device_id": "DEV123ABC",
+        |  "session_length_sec": 1800
+        |}""".stripMargin
+
+    val event = JsonUtils.fromJson[TransactionEvent](lambdaJson)
+
+    event.transactionId shouldBe "TXN7G2K9P4L3M8N1"
+    event.domain shouldBe "gaming"
+    event.actorId shouldBe "A123456"
+    event.amount shouldBe 19.99
+    event.isFraud shouldBe false
+    event.playerId shouldBe Some("P123456")
+    event.gameId shouldBe Some("FortniteClone")
+    event.itemType shouldBe Some("skin")
   }
 }
