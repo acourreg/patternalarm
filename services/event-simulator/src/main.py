@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Event generator CLI - invoked by curl or Spring Boot
-Usage: python main.py --test-id test-001 --domain gaming --load-level normal --duration 60
+Usage: python main.py --test-id test-001 --domain gaming --load-level mini --duration 60
 """
 import sys
 import json
@@ -78,6 +78,7 @@ DOMAIN_CONFIG = {
 
 class LoadLevel(Enum):
     """Load testing profiles"""
+    MINI = ('mini', 5)  # 5 events/min
     NORMAL = ('normal', 10_000)  # 10K events/min
     PEAK = ('peak', 50_000)  # 50K events/min
     CRISIS = ('crisis', 100_000)  # 100K events/min
@@ -231,7 +232,7 @@ def parse_args():
                         choices=['gaming', 'ecommerce', 'fintech'],
                         help='Transaction domain')
     parser.add_argument('--load-level', required=True,
-                        choices=['normal', 'peak', 'crisis'],
+                        choices=['mini', 'normal', 'peak', 'crisis'],
                         help='Load testing profile')
     parser.add_argument('--duration', type=int, default=60,
                         help='Test duration in seconds (unused in Phase 1)')
