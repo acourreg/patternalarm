@@ -12,7 +12,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 class FraudScoringAsyncFunction(fastapiUrl: String)
-    extends AsyncFunction[TimedWindowAggregate, (TimedWindowAggregate, PredictResponse)] {
+  extends AsyncFunction[TimedWindowAggregate, (TimedWindowAggregate, PredictResponse)] {
 
   @transient private var backend: SttpBackend[Future, Any] = _
   @transient private var ec: ExecutionContext = _
@@ -20,11 +20,11 @@ class FraudScoringAsyncFunction(fastapiUrl: String)
   def open(parameters: Configuration): Unit = {
     println(s"🔌 Initializing FraudScoringAsyncFunction...")
     println(s"🔌 FastAPI URL: $fastapiUrl")
+    println(s"🔌 BUILD VERSION: OkHttp v3.9.0 - FINAL-2025-10-29-01:00")
 
-    backend = OkHttpFutureBackend()  // ← More reliable than HttpClient
+    backend = OkHttpFutureBackend()
     ec = scala.concurrent.ExecutionContext.global
-    println(s"✅ HTTP client backend initialized")
-
+    println(s"✅ HTTP client backend initialized (OkHttp)")
   }
 
   def close(): Unit = {
@@ -36,17 +36,19 @@ class FraudScoringAsyncFunction(fastapiUrl: String)
   }
 
   override def asyncInvoke(
-    aggregate: TimedWindowAggregate,
-    resultFuture: ResultFuture[(TimedWindowAggregate, PredictResponse)]
-  ): Unit = {
+                            aggregate: TimedWindowAggregate,
+                            resultFuture: ResultFuture[(TimedWindowAggregate, PredictResponse)]
+                          ): Unit = {
 
-    println(s"📤 Preparing ML prediction request for actor=${aggregate.actorId}")
-    
+    val timestamp = System.currentTimeMillis()
+    println(s"📤 [$timestamp] Preparing ML prediction for actor=${aggregate.actorId}")
+
     val request = PredictRequest.fromAggregate(aggregate)
     val requestJson = JsonUtils.toJson(request)
-    
-    println(s"📤 Request JSON size: ${requestJson.length} chars")
-    println(s"📤 Sending POST to: $fastapiUrl/predict")
+
+    println(s"📤 [$timestamp] JSON size: ${requestJson.length} chars")
+    println(s"📤 [$timestamp] Target: $fastapiUrl/predict")
+    println(s"📤 [$timestamp] Creating HTTP Future...")
 
     val responseFuture: Future[Response[String]] =
       basicRequest
@@ -56,52 +58,60 @@ class FraudScoringAsyncFunction(fastapiUrl: String)
         .response(asStringAlways)
         .send(backend)
 
+    println(s"📤 [$timestamp] Future created, attaching callback...")
+
     responseFuture.onComplete {
       case Success(response) =>
+        val callbackTime = System.currentTimeMillis()
+        println(s"✅ [$callbackTime] CALLBACK FIRED! actor=${aggregate.actorId}, code=${response.code}, elapsed=${callbackTime - timestamp}ms")
+
         if (response.code.isSuccess) {
-          println(s"✅ Received successful response (${response.code}) for actor=${aggregate.actorId}")
           try {
             val predictResponse = JsonUtils.fromJson[PredictResponse](response.body)
-            println(s"✅ Parsed ML response: fraud_score=${predictResponse.fraudScore}, model=${predictResponse.modelVersion}")
+            println(s"✅ [$callbackTime] Parsed: fraud_score=${predictResponse.fraudScore}, model=${predictResponse.modelVersion}")
             resultFuture.complete(Iterable((aggregate, predictResponse)).asJavaCollection)
           } catch {
             case e: Exception =>
-              System.err.println(s"❌ ERROR: Failed to parse ML response for actor=${aggregate.actorId}")
+              System.err.println(s"❌ [$callbackTime] Parse failed for actor=${aggregate.actorId}")
               System.err.println(s"❌ Response body: ${response.body.take(500)}")
-              System.err.println(s"❌ Parse error: ${e.getMessage}")
+              System.err.println(s"❌ Error: ${e.getMessage}")
               e.printStackTrace()
               resultFuture.completeExceptionally(
                 new RuntimeException(s"Failed to parse response: ${e.getMessage}", e)
               )
           }
         } else {
-          System.err.println(s"❌ ERROR: FastAPI returned error ${response.code} for actor=${aggregate.actorId}")
-          System.err.println(s"❌ Response body: ${response.body}")
+          System.err.println(s"❌ [$callbackTime] API error ${response.code} for actor=${aggregate.actorId}")
+          System.err.println(s"❌ Body: ${response.body}")
           resultFuture.completeExceptionally(
             new RuntimeException(s"FastAPI error ${response.code}: ${response.body}")
           )
         }
 
       case Failure(exception) =>
-        System.err.println(s"❌ ERROR: HTTP call failed for actor=${aggregate.actorId}")
-        System.err.println(s"❌ Target URL: $fastapiUrl/predict")
-        System.err.println(s"❌ Exception type: ${exception.getClass.getName}")
-        System.err.println(s"❌ Exception message: ${exception.getMessage}")
+        val failTime = System.currentTimeMillis()
+        System.err.println(s"❌ [$failTime] HTTP FAILURE for actor=${aggregate.actorId}, elapsed=${failTime - timestamp}ms")
+        System.err.println(s"❌ URL: $fastapiUrl/predict")
+        System.err.println(s"❌ Exception: ${exception.getClass.getName}")
+        System.err.println(s"❌ Message: ${exception.getMessage}")
         exception.printStackTrace()
         resultFuture.completeExceptionally(
-          new RuntimeException(s"HTTP call failed to $fastapiUrl: ${exception.getMessage}", exception)
+          new RuntimeException(s"HTTP call failed: ${exception.getMessage}", exception)
         )
     }(ec)
+
+    println(s"📤 [$timestamp] Callback attached, asyncInvoke complete")
   }
 
   override def timeout(
-    input: TimedWindowAggregate,
-    resultFuture: ResultFuture[(TimedWindowAggregate, PredictResponse)]
-  ): Unit = {
-    System.err.println(s"⏱️  TIMEOUT: ML prediction request timed out for actor=${input.actorId}")
-    System.err.println(s"⏱️  Target URL: $fastapiUrl/predict")
+                        input: TimedWindowAggregate,
+                        resultFuture: ResultFuture[(TimedWindowAggregate, PredictResponse)]
+                      ): Unit = {
+    val timeoutTime = System.currentTimeMillis()
+    System.err.println(s"⏱️  [$timeoutTime] TIMEOUT TRIGGERED for actor=${input.actorId}")
+    System.err.println(s"⏱️  URL: $fastapiUrl/predict")
     resultFuture.completeExceptionally(
-      new RuntimeException(s"Timeout for actor ${input.actorId} calling $fastapiUrl")
+      new RuntimeException(s"Timeout for actor ${input.actorId}")
     )
   }
 }
