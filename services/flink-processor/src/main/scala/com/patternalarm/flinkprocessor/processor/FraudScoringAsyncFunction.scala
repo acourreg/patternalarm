@@ -44,7 +44,7 @@ class FraudScoringAsyncFunction(fastapiUrl: String)
     println(s"📤 [$timestamp] Preparing ML prediction for actor=${aggregate.actorId}")
 
     val request = PredictRequest.fromAggregate(aggregate)
-    val requestJson = JsonUtils.toJson(request)
+    val requestJson = JsonUtils.toJsonCamelCase(request)
 
     println(s"📤 [$timestamp] JSON size: ${requestJson.length} chars")
     println(s"📤 [$timestamp] Target: $fastapiUrl/predict")
