@@ -39,7 +39,7 @@ async def predict(request: PredictRequest):
     # Add scoring based on transaction patterns
     if len(request.transactions) > 0:
         # Check for suspicious IPs (mocked logic)
-        suspicious_ips = sum(1 for t in request.transactions if t.ip_address and t.ip_address.startswith("45.142"))
+        suspicious_ips = sum(1 for t in request.transactions if t.ipAddress and t.ipAddress.startswith("45.142"))
         base_score += suspicious_ips * 5
 
         # Check for high-value transactions
@@ -112,8 +112,8 @@ async def get_alert_detail(alert_id: int):
     """
     alert = generate_mock_alert(alert_id)
     transactions = generate_mock_transactions(
-        count=alert.transaction_count,
-        actor_id=alert.actor_id,
+        count=alert.transactionCount,
+        actor_id=alert.actorId,
         domain=alert.domain
     )
 
