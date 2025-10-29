@@ -50,13 +50,32 @@ class FraudScoringAsyncFunction(fastapiUrl: String)
     println(s"📤 [$timestamp] Target: $fastapiUrl/predict")
     println(s"📤 [$timestamp] Creating HTTP Future with OkHttp v3.9.0 - FINAL-2025-10-29-03:05...")
 
-    val responseFuture: Future[Response[String]] =
-      basicRequest
-        .post(uri"$fastapiUrl/predict")
-        .contentType("application/json")
-        .body(requestJson)
-        .response(asStringAlways)
-        .send(backend)
+//    val responseFuture: Future[Response[String]] =
+//      basicRequest
+//        .post(uri"$fastapiUrl/predict")
+//        .contentType("application/json")
+//        .body(requestJson)
+//        .response(asStringAlways)
+//        .send(backend)
+
+    println(s"📤 [$timestamp] Step 1: Creating basicRequest...")
+    val req1 = basicRequest
+
+    println(s"📤 [$timestamp] Step 2: Setting POST method...")
+    val req2 = req1.post(uri"$fastapiUrl/predict")
+
+    println(s"📤 [$timestamp] Step 3: Setting content-type...")
+    val req3 = req2.contentType("application/json")
+
+    println(s"📤 [$timestamp] Step 4: Setting body (${requestJson.length} chars)...")
+    val req4 = req3.body(requestJson)
+
+    println(s"📤 [$timestamp] Step 5: Setting response handler...")
+    val req5 = req4.response(asStringAlways)
+
+    println(s"📤 [$timestamp] Step 6: Calling send(backend)...")
+    val responseFuture = req5.send(backend)
+
 
     println(s"📤 [$timestamp] Future created, attempting to attach callback...")
 
