@@ -79,6 +79,7 @@ libraryDependencies ++= Seq(
 
   // HTTP Client
   "com.softwaremill.sttp.client3" %% "okhttp-backend" % "3.9.0",
+  "com.softwaremill.sttp.client3" %% "async-http-client-backend-future" % "3.9.0",
 
   // Logging
   "org.slf4j" % "slf4j-api" % "2.0.9",

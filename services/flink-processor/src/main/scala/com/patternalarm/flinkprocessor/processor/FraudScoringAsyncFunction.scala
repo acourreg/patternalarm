@@ -5,6 +5,7 @@ import com.patternalarm.flinkprocessor.utils.JsonUtils
 import org.apache.flink.configuration.Configuration
 import org.apache.flink.streaming.api.functions.async.{AsyncFunction, ResultFuture}
 import sttp.client3._
+import sttp.client3.asynchttpclient.future.AsyncHttpClientFutureBackend
 import sttp.client3.okhttp.OkHttpFutureBackend
 
 import scala.collection.JavaConverters.asJavaCollectionConverter
@@ -20,11 +21,11 @@ class FraudScoringAsyncFunction(fastapiUrl: String)
   def open(parameters: Configuration): Unit = {
     println(s"🔌 Initializing FraudScoringAsyncFunction...")
     println(s"🔌 FastAPI URL: $fastapiUrl")
-    println(s"🔌 BUILD VERSION: OkHttp v3.9.0 - FINAL-2025-10-29-03:05")
+    println(s"🔌 BUILD VERSION: AsyncHttpClient v3.9.0 - FINAL-2025-10-29-03:35")
 
-    backend = OkHttpFutureBackend()
+    backend = AsyncHttpClientFutureBackend()  // ← Different backend
     ec = scala.concurrent.ExecutionContext.global
-    println(s"✅ HTTP client backend initialized (OkHttp)")
+    println(s"✅ HTTP client backend initialized (AsyncHttpClient)")
   }
 
   def close(): Unit = {
