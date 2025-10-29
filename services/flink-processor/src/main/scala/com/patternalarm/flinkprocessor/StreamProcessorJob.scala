@@ -244,7 +244,7 @@ object StreamProcessorJob {
   private[flinkprocessor] def parseJson(json: String): TransactionEvent =
     try {
       val event = JsonUtils.fromJson[TransactionEvent](json)
-      println(s"✅ Parsed transaction: actorId=${event.actorId}, domain=${event.domain}, amount=${event.amount}")
+//      println(s"✅ Parsed transaction: actorId=${event.actorId}, domain=${event.domain}, amount=${event.amount}")
       event
     } catch {
       case e: Exception =>
@@ -352,7 +352,7 @@ object StreamProcessorJob {
 @SerialVersionUID(100L)
 class TransactionJsonParser extends MapFunction[String, TransactionEvent] {
   override def map(json: String): TransactionEvent = {
-    println(s"📥 Received message from Kafka (${json.length} chars)")
+//    println(s"📥 Received message from Kafka (${json.length} chars)")
     StreamProcessorJob.parseJson(json)
   }
 }
