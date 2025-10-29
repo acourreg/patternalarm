@@ -11,7 +11,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 
-def lambda_handler(event, context):
+def handler(event, context):
     """Lambda entry point"""
     try:
         test_id = event.get('test_id', f"test-{context.aws_request_id[:8]}")
