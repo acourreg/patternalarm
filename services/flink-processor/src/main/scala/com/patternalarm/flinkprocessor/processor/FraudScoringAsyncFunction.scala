@@ -20,7 +20,7 @@ class FraudScoringAsyncFunction(fastapiUrl: String)
   def open(parameters: Configuration): Unit = {
     println(s"🔌 Initializing FraudScoringAsyncFunction...")
     println(s"🔌 FastAPI URL: $fastapiUrl")
-    println(s"🔌 BUILD VERSION: OkHttp v3.9.0 - FINAL-2025-10-29-01:00")
+    println(s"🔌 BUILD VERSION: OkHttp v3.9.0 - FINAL-2025-10-29-01:15")
 
     backend = OkHttpFutureBackend()
     ec = scala.concurrent.ExecutionContext.global
@@ -48,7 +48,7 @@ class FraudScoringAsyncFunction(fastapiUrl: String)
 
     println(s"📤 [$timestamp] JSON size: ${requestJson.length} chars")
     println(s"📤 [$timestamp] Target: $fastapiUrl/predict")
-    println(s"📤 [$timestamp] Creating HTTP Future...")
+    println(s"📤 [$timestamp] Creating HTTP Future with OkHttp v3.9.0 - FINAL-2025-10-29-01:15...")
 
     val responseFuture: Future[Response[String]] =
       basicRequest
@@ -59,6 +59,8 @@ class FraudScoringAsyncFunction(fastapiUrl: String)
         .send(backend)
 
     println(s"📤 [$timestamp] Future created, attaching callback...")
+
+    import scala.concurrent.ExecutionContext.Implicits.global
 
     responseFuture.onComplete {
       case Success(response) =>
