@@ -78,8 +78,7 @@ libraryDependencies ++= Seq(
   "com.h2database" % "h2" % "2.2.224" % Test,
 
   // HTTP Client
-  "com.softwaremill.sttp.client3" %% "core" % "3.9.0",
-  "com.softwaremill.sttp.client3" %% "circe" % "3.9.0",
+  "com.softwaremill.sttp.client3" %% "okhttp-backend" % "3.9.0",
 
   // Logging
   "org.slf4j" % "slf4j-api" % "2.0.9",

@@ -5,7 +5,7 @@ import com.github.tomakehurst.wiremock.client.WireMock.{aResponse, post, urlEqua
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig
 import com.patternalarm.flinkprocessor.model._
 import org.apache.flink.configuration.Configuration
-import org.apache.flink.streaming.api.functions.async.{AsyncFunction, ResultFuture}
+import org.apache.flink.streaming.api.functions.async.ResultFuture
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -67,10 +67,10 @@ class FraudScoringAsyncFunctionTest extends AnyFlatSpec with Matchers with Befor
             .withHeader("Content-Type", "application/json")
             .withBody("""
               {
-                "fraudScore": 85,
-                "modelVersion": "v1.0-test",
-                "inferenceTimeMs": 12,
-                "transactionsAnalyzed": 1
+                "fraud_score": 85,
+                "model_version": "v1.0-test",
+                "inference_time_ms": 12,
+                "transactions_analyzed": 1
               }
             """)
         )
