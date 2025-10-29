@@ -3,22 +3,21 @@ package com.patternalarm.flinkprocessor.processor
 import com.patternalarm.flinkprocessor.model._
 import com.patternalarm.flinkprocessor.utils.JsonUtils
 import org.apache.flink.configuration.Configuration
-import org.apache.flink.streaming.api.functions.async.{AsyncFunction, ResultFuture}
+import org.apache.flink.streaming.api.functions.async.{ResultFuture, RichAsyncFunction}
 import sttp.client3._
 import sttp.client3.asynchttpclient.future.AsyncHttpClientFutureBackend
-import sttp.client3.okhttp.OkHttpFutureBackend
 
 import scala.collection.JavaConverters.asJavaCollectionConverter
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 class FraudScoringAsyncFunction(fastapiUrl: String)
-  extends AsyncFunction[TimedWindowAggregate, (TimedWindowAggregate, PredictResponse)] {
+  extends RichAsyncFunction[TimedWindowAggregate, (TimedWindowAggregate, PredictResponse)] {
 
   @transient private var backend: SttpBackend[Future, Any] = _
   @transient private var ec: ExecutionContext = _
 
-  def open(parameters: Configuration): Unit = {
+  override def open(parameters: Configuration): Unit = {
     println(s"🔌 Initializing FraudScoringAsyncFunction...")
     println(s"🔌 FastAPI URL: $fastapiUrl")
     println(s"🔌 BUILD VERSION: AsyncHttpClient v3.9.0 - FINAL-2025-10-29-03:35")
@@ -28,7 +27,7 @@ class FraudScoringAsyncFunction(fastapiUrl: String)
     println(s"✅ HTTP client backend initialized (AsyncHttpClient)")
   }
 
-  def close(): Unit = {
+  override def close(): Unit = {
     println("🔌 Closing HTTP client backend...")
     if (backend != null) {
       backend.close()
