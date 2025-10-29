@@ -130,22 +130,16 @@ def get_pattern_rates(domain: str):
 
 def run_test(test_id: str, domain: str, load_level: LoadLevel,
              duration_seconds: int, kafka_bootstrap: str, kafka_topic: str):
-    """
-    Execute load test with domain-specific pattern rates
-    Phase 1: Serial batch generation
-    Phase 2: Replace with Lambda concurrency
-    """
+    """Execute load test with domain-specific pattern rates"""
     logger = logging.getLogger(__name__)
 
     logger.info(f"Starting test: {test_id}")
     logger.info(f"Domain: {domain}, Load: {load_level.level_name}, Duration: {duration_seconds}s")
     logger.info(f"Target: {load_level.events_per_min:,} events/min")
 
-    # Create generator and get pattern rates for this domain
     generator = create_generator(domain, test_id)
     pattern_rates = get_pattern_rates(domain)
 
-    # Log pattern distribution
     fraud_rate = sum(rate for pattern, rate in pattern_rates.items() if pattern.is_fraud())
     logger.info(f"Pattern distribution: {fraud_rate * 100:.1f}% fraud, {(1 - fraud_rate) * 100:.1f}% legitimate")
 
@@ -154,27 +148,38 @@ def run_test(test_id: str, domain: str, load_level: LoadLevel,
         topic=kafka_topic
     )
 
-    # Calculate batching
+    # Calculate target events (events/min stays constant, not scaled by duration)
     target_events = load_level.events_per_min
-    batch_size = 1000  # AC2.4: batch size
-    total_batches = target_events // batch_size
 
-    # Metrics
+    # Adaptive batch size
+    batch_size = min(1000, target_events)  # Use smaller batch for mini loads
+    total_batches = max(1, target_events // batch_size)  # At least 1 batch
+    remaining_events = target_events % batch_size
+
     start_time = time.time()
     events_generated = 0
     events_published = 0
     errors = 0
 
     try:
-        # Generate events in batches
-        logger.info(f"Generating {total_batches} batches of {batch_size} events...")
+        logger.info(f"Generating {total_batches} batch(es) of {batch_size} events + {remaining_events} remaining...")
 
+        # Generate full batches
         for batch_num in range(total_batches):
-            # Generate batch with domain-specific pattern rates
             events = generator.generate_batch(batch_size, pattern_rates)
             events_generated += len(events)
 
-            # Publish to Kafka
+            success = publisher.publish(events, domain)
+            if success:
+                events_published += len(events)
+            else:
+                errors += len(events)
+
+        # Generate remaining events if any
+        if remaining_events > 0:
+            events = generator.generate_batch(remaining_events, pattern_rates)
+            events_generated += len(events)
+
             success = publisher.publish(events, domain)
             if success:
                 events_published += len(events)
