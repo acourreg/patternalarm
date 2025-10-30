@@ -1,7 +1,6 @@
 resource "aws_db_subnet_group" "main" {
   name       = "${var.project_name}-db-subnet"
   
-  # APRÈS (FIXED):
   subnet_ids = [
     aws_subnet.private.id,
     aws_subnet.private_b.id
@@ -11,8 +10,6 @@ resource "aws_db_subnet_group" "main" {
     Name = "${var.project_name}-db-subnet-group"
   }
 }
-
-# Reste identique
 
 resource "aws_db_instance" "main" {
   identifier        = "${var.project_name}-db"
@@ -46,4 +43,23 @@ resource "aws_ssm_parameter" "db_password" {
   tags = {
     Name = "${var.project_name}-db-password"
   }
+}
+
+# ============================================================================
+# OUTPUTS
+# ============================================================================
+
+output "rds_endpoint" {
+  value       = aws_db_instance.main.endpoint
+  description = "RDS endpoint for database connections"
+}
+
+output "rds_address" {
+  value       = aws_db_instance.main.address
+  description = "RDS address (hostname only)"
+}
+
+output "rds_port" {
+  value       = aws_db_instance.main.port
+  description = "RDS port"
 }

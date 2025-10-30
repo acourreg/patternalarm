@@ -1,3 +1,36 @@
+# ============================================================================
+# BASTION SSH KEY GENERATION
+# ============================================================================
+
+# Generate SSH key pair for bastion access
+resource "tls_private_key" "bastion" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
+}
+
+# Store public key in SSM Parameter Store
+resource "aws_ssm_parameter" "bastion_public_key" {
+  name        = "/${var.project_name}/bastion-public-key"
+  description = "SSH public key for Fargate bastion access"
+  type        = "String"
+  value       = tls_private_key.bastion.public_key_openssh
+  
+  tags = {
+    Name = "${var.project_name}-bastion-public-key"
+  }
+}
+
+# Save private key locally for convenience
+resource "local_file" "bastion_private_key" {
+  content         = tls_private_key.bastion.private_key_pem
+  filename        = "${path.module}/bastion-key.pem"
+  file_permission = "0600"
+}
+
+# ============================================================================
+# IAM ROLES
+# ============================================================================
+
 # Lambda Execution Role
 resource "aws_iam_role" "lambda_exec" {
   name = "${var.project_name}-lambda-exec"
@@ -67,6 +100,11 @@ resource "aws_iam_role" "ecs_task_execution" {
 resource "aws_iam_role_policy_attachment" "ecs_task_execution" {
   role       = aws_iam_role.ecs_task_execution.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_task_ssm" {
+  role       = aws_iam_role.ecs_task.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
 # ECS Task Role (for application permissions)
@@ -144,7 +182,10 @@ resource "aws_iam_role_policy" "ecs_task_execution_ssm" {
           "ssm:GetParameters",
           "ssm:GetParameter"
         ]
-        Resource = aws_ssm_parameter.db_password.arn
+        Resource = [
+          aws_ssm_parameter.db_password.arn,
+          aws_ssm_parameter.bastion_public_key.arn  # ✅ Add bastion key access
+        ]
       }
     ]
   })

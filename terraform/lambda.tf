@@ -45,8 +45,7 @@ resource "aws_lambda_function" "event_generator" {
     ignore_changes = [
       filename,
       source_code_hash,
-      handler,
-      last_modified
+      handler
     ]
   }
   
