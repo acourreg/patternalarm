@@ -50,6 +50,11 @@ async def predict(request: PredictRequest):
     noise = random.randint(-10, 10)
     fraud_score = max(0, min(100, base_score + noise))
 
+    # TODO: TEMPORARY - Force high scores 50% of time for DB testing - TO DELETE ONCE REAL PREDICTIONS
+    if random.random() < 0.5:
+        # High fraud score (will trigger alert)
+        fraud_score = random.randint(70, 95)
+
     return PredictResponse(
         fraud_score=fraud_score,
         model_version="v1.0-mocked",
