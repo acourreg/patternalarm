@@ -58,6 +58,7 @@ resource "aws_ecs_task_definition" "services" {
   execution_role_arn       = aws_iam_role.ecs_task_execution.arn
   task_role_arn            = aws_iam_role.ecs_task.arn
   
+  
   container_definitions = jsonencode([{
     name  = each.key
     image = "${aws_ecr_repository.main.repository_url}:${each.key}-latest"
@@ -78,11 +79,14 @@ resource "aws_ecs_task_definition" "services" {
       }
     }
     
+    
+    # Variables d'environnement communes
     # Variables d'environnement communes
     environment = concat(
       [
         { name = "AWS_REGION", value = var.aws_region },
-        { name = "ENVIRONMENT", value = "dev" }
+        { name = "ENVIRONMENT", value = "dev" },
+        { name = "PORT", value = tostring(each.value.port) }  # ✅ Add this - uses port from locals
       ],
       # Variables spécifiques par service
       each.key == "flink-processor" ? [
@@ -202,6 +206,16 @@ resource "aws_security_group_rule" "rds_from_ecs" {
   description              = "Allow ECS tasks to access RDS"
 }
 
+resource "aws_security_group_rule" "ecs_to_ecs_8080" {
+  type              = "egress"
+  from_port         = 8080
+  to_port           = 8080
+  protocol          = "tcp"
+  security_group_id = aws_security_group.ecs_tasks.id
+  source_security_group_id = aws_security_group.ecs_tasks.id
+  description       = "Allow ECS tasks to call each other on port 8080"
+}
+
 # ECS Services
 resource "aws_ecs_service" "services" {
   for_each = local.ecs_services
@@ -211,6 +225,8 @@ resource "aws_ecs_service" "services" {
   task_definition = aws_ecs_task_definition.services[each.key].arn
   desired_count   = each.value.desired_count
   launch_type     = "FARGATE"
+
+  enable_execute_command = true
   
   network_configuration {
     subnets          = [aws_subnet.private.id]
@@ -274,9 +290,7 @@ resource "aws_service_discovery_service" "services" {
     routing_policy = "MULTIVALUE"
   }
   
-  health_check_custom_config {
-    failure_threshold = 1
-  }
+  # ✅ No health check for private DNS - trust ECS health checks
   
   tags = {
     Name    = "${var.project_name}-${each.key}-discovery"
