@@ -73,35 +73,30 @@ class AlertsResponse(BaseModel):
     page: int = 1
 
 
-class AnalyticsSummary(BaseModel):
-    """Overall analytics summary"""
-    period: str
+
+# ============================================================================
+# ANALYTICS (Dashboard → FastAPI)
+# ============================================================================
+
+class VelocityDataPoint(BaseModel):
+    """
+    Single data point for velocity time-series graph
+    Represents aggregated metrics for a time bucket
+    """
+    domain: str
+    x: float  # Time in seconds since start
+    y1_velocity: int  # Number of alerts in this bucket
+    y2_avg_score: float  # Average fraud score in this bucket
+    y3_cumulative: int  # Cumulative total alerts
+    trend_status: str  # BASELINE | SPIKE | TRENDING_UP | STABLE
+
+
+class VelocityAnalytics(BaseModel):
+    """
+    Time-series analytics for alert velocity graphing
+    Contains data points for multiple domains
+    """
+    data_points: List[VelocityDataPoint]
+    bucket_size_seconds: int
     total_alerts: int
-    by_severity: Dict[str, int]
-    by_domain: Dict[str, int]
-    avg_fraud_score: int
-    total_amount_flagged: float
-
-
-class DomainAnalytics(BaseModel):
-    """Domain-specific analytics"""
-    domain: str
-    period: str
-    alert_count: int
-    avg_fraud_score: int
-    total_amount: float
-    top_alert_types: List[Dict[str, int]]
-    trend: str
-
-
-class Transaction(BaseModel):
-    """
-    Simple transaction view for mock data
-    (Not the same as TransactionEvent - simplified for API responses)
-    """
-    transaction_id: str
-    actor_id: str
-    domain: str
-    timestamp: datetime
-    amount: float
-    transaction_data: Dict
+    domains: List[str]

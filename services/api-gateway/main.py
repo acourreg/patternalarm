@@ -1,258 +1,46 @@
 """
-FastAPI Mock Service
-- Model serving for Flink (POST /predict)
-- Query layer for Dashboard (GET /alerts, /analytics)
+FastAPI API Gateway
+- Model serving for Flink (POST /predict) - MOCKED
+- Query layer for Dashboard (GET /alerts, /analytics) - REAL DATABASE
 """
-from fastapi import FastAPI, HTTPException
-from datetime import datetime, timedelta
-import random
-from typing import Optional
+from fastapi import FastAPI
 
-from src.models.api_models import (
-    PredictRequest, PredictResponse,
-    HealthResponse, AlertsResponse, Alert, AlertDetail,
-    AnalyticsSummary, DomainAnalytics, TransactionEvent
-)
+from src.routes.alerts_router import alerts_router
+from src.routes.health_router import health_router
+from src.routes.predict_router import predict_router
+from src.routes.analytics_router import analytics_router
 
 app = FastAPI(
     title="PatternAlarm API Gateway",
-    description="Mock ML serving + Query layer",
-    version="1.0.0-mocked"
+    description="ML serving + Real PostgreSQL Query layer",
+    version="1.0.0"
 )
 
+# ✅ Include all routers
+app.include_router(alerts_router)
+app.include_router(analytics_router)
+app.include_router(health_router)
+app.include_router(predict_router)
 
-
-# ============================================================================
-# MODEL SERVING ENDPOINT (Flink calls this)
-# ============================================================================
-
-
-@app.post("/predict", response_model=PredictResponse)
-async def predict(request: PredictRequest):
-    """
-    ML model prediction endpoint (MOCKED)
-    Flink sends aggregated features + raw transactions, receives fraud_score
-    """
-    # Mock scoring logic based on aggregated features
-    base_score = min(100, (request.transaction_count * 15) + int(request.total_amount / 100))
-
-    # Add scoring based on transaction patterns
-    if len(request.transactions) > 0:
-        # Check for suspicious IPs (mocked logic)
-        suspicious_ips = sum(1 for t in request.transactions if t.ipAddress and t.ipAddress.startswith("45.142"))
-        base_score += suspicious_ips * 5
-
-        # Check for high-value transactions
-        high_value_count = sum(1 for t in request.transactions if t.amount > 500)
-        base_score += high_value_count * 3
-
-    # Add random noise
-    noise = random.randint(-10, 10)
-    fraud_score = max(0, min(100, base_score + noise))
-
-    # TODO: TEMPORARY - Force high scores 50% of time for DB testing - TO DELETE ONCE REAL PREDICTIONS
-    if random.random() < 0.5:
-        # High fraud score (will trigger alert)
-        fraud_score = random.randint(70, 95)
-
-    return PredictResponse(
-        fraud_score=fraud_score,
-        model_version="v1.0-mocked",
-        inference_time_ms=random.randint(8, 20),
-        transactions_analyzed=len(request.transactions)
-    )
-
-
-# ============================================================================
-# HEALTH CHECK
-# ============================================================================
-
-@app.get("/health", response_model=HealthResponse)
-async def health():
-    """System health check"""
-    return HealthResponse(
-        status="healthy",
-        database="connected",
-        redis="connected",
-        model_loaded=True,
-        model_version="v1.0-mocked",
-        timestamp=datetime.now()
-    )
-
-
-# ============================================================================
-# ALERTS ENDPOINTS
-# ============================================================================
-
-@app.get("/alerts", response_model=AlertsResponse)
-async def get_alerts(
-        domain: Optional[str] = None,
-        severity: Optional[str] = None,
-        limit: int = 10
-):
-    """
-    Get list of alerts (MOCKED)
-    Query params: domain, severity, limit
-    """
-    # Generate mock alerts
-    alerts = [generate_mock_alert(i) for i in range(1, limit + 1)]
-
-    # Apply filters
-    if domain:
-        alerts = [a for a in alerts if a.domain == domain]
-    if severity:
-        alerts = [a for a in alerts if a.severity == severity]
-
-    return AlertsResponse(
-        alerts=alerts,
-        total=len(alerts),
-        page=1
-    )
-
-
-@app.get("/alerts/{alert_id}", response_model=AlertDetail)
-async def get_alert_detail(alert_id: int):
-    """
-    Get alert detail with nested transactions (MOCKED)
-    """
-    alert = generate_mock_alert(alert_id)
-    transactions = generate_mock_transactions(
-        count=alert.transactionCount,
-        actor_id=alert.actorId,
-        domain=alert.domain
-    )
-
-    return AlertDetail(
-        **alert.model_dump(),
-        transactions=transactions,
-        metadata={
-            "window_seconds": 240,
-            "baseline_avg": 1.2,
-            "spike_ratio": round(random.uniform(3.0, 5.0), 2),
-            "patterns_detected": ["velocity_spike", "suspicious_ip"],
-            "confidence": random.randint(75, 95)
-        }
-    )
-
-
-# ============================================================================
-# ANALYTICS ENDPOINTS
-# ============================================================================
-
-@app.get("/analytics/summary", response_model=AnalyticsSummary)
-async def get_analytics_summary():
-    """
-    Overall analytics summary (MOCKED)
-    """
-    return AnalyticsSummary(
-        period="last_24h",
-        total_alerts=random.randint(100, 200),
-        by_severity={
-            "CRITICAL": random.randint(10, 20),
-            "HIGH": random.randint(40, 60),
-            "MEDIUM": random.randint(50, 80),
-            "LOW": random.randint(10, 30)
-        },
-        by_domain={
-            "gaming": random.randint(50, 80),
-            "ecommerce": random.randint(30, 50),
-            "fintech": random.randint(20, 40)
-        },
-        avg_fraud_score=random.randint(70, 80),
-        total_amount_flagged=round(random.uniform(100000, 200000), 2)
-    )
-
-
-@app.get("/analytics/domain/{domain}", response_model=DomainAnalytics)
-async def get_domain_analytics(domain: str):
-    """
-    Domain-specific analytics (MOCKED)
-    """
-    if domain not in ["gaming", "ecommerce", "fintech"]:
-        raise HTTPException(status_code=404, detail="Domain not found")
-
-    return DomainAnalytics(
-        domain=domain,
-        period="last_24h",
-        alert_count=random.randint(30, 80),
-        avg_fraud_score=random.randint(70, 85),
-        total_amount=round(random.uniform(30000, 80000), 2),
-        top_alert_types=[
-            {"type": "velocity_spike", "count": random.randint(10, 30)},
-            {"type": "account_takeover", "count": random.randint(5, 20)}
-        ],
-        trend=random.choice(["increasing", "stable", "decreasing"])
-    )
-
-
-# ============================================================================
-# ROOT
-# ============================================================================
 
 @app.get("/")
 async def root():
     """API info"""
     return {
         "service": "PatternAlarm API Gateway",
-        "version": "1.0.0-mocked",
-        "status": "running",
+        "version": "1.0.0",
+        "database": "✅ PostgreSQL (Real queries)",
         "endpoints": {
-            "model_serving": "POST /predict",
+            "model_serving": "POST /predict (mocked)",
             "health": "GET /health",
-            "alerts": "GET /alerts, GET /alerts/{id}",
-            "analytics": "GET /analytics/summary, GET /analytics/domain/{domain}"
+            "alerts": "GET /alerts (✅ REAL DB)",
+            "alert_detail": "GET /alerts/{id} (✅ REAL DB)",
+            "analytics_summary": "GET /analytics/summary (✅ REAL DB)",
+            "analytics_domain": "GET /analytics/domain/{domain} (✅ REAL DB)"
         }
     }
 
 
-# ============================================================================
-# MOCK DATA GENERATORS
-# ============================================================================
-
-def generate_mock_transactions(count: int, actor_id: str, domain: str) -> list[TransactionEvent]:
-    """Generate mock TransactionEvent objects"""
-    transactions = []
-    base_time = datetime.now() - timedelta(minutes=5)
-
-    for i in range(count):
-        transactions.append(TransactionEvent(
-            transactionId=f"TXN{random.randint(10000, 99999)}",  # ✅ camelCase
-            domain=domain,
-            testId="mock-test",  # ✅ camelCase
-            timestamp=base_time + timedelta(seconds=i * 30),
-            actorId=actor_id,  # ✅ camelCase
-            amount=round(random.uniform(50, 500), 2),
-            currency="USD",
-            ipAddress=f"45.142.{random.randint(1, 255)}.{random.randint(1, 255)}",  # ✅ camelCase
-            pattern=random.choice(["velocity_spike", "regular"]),
-            isFraud=random.choice([True, False]),  # ✅ camelCase
-            sequencePosition=i  # ✅ camelCase
-        ))
-    return transactions
-
-
-def generate_mock_alert(alert_id: int) -> Alert:
-    """Generate a single mock Alert"""
-    domain = random.choice(["gaming", "ecommerce", "fintech"])
-    severity = random.choice(["CRITICAL", "HIGH", "MEDIUM", "LOW"])
-    actor_id = f"A{random.randint(100000, 999999)}"
-
-    return Alert(
-        alertId=alert_id,  # ✅ camelCase
-        alertType=random.choice(["velocity_spike", "account_takeover", "suspicious_amount"]),
-        domain=domain,
-        actorId=actor_id,  # ✅ camelCase
-        severity=severity,
-        fraudScore=random.randint(60, 95),  # ✅ camelCase
-        transactionCount=random.randint(3, 8),  # ✅ camelCase
-        totalAmount=round(random.uniform(200, 2000), 2),  # ✅ camelCase
-        firstSeen=datetime.now() - timedelta(minutes=random.randint(5, 30)),  # ✅ camelCase
-        lastSeen=datetime.now() - timedelta(minutes=random.randint(0, 5))  # ✅ camelCase
-    )
-
-
-
 if __name__ == "__main__":
     import uvicorn
-
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8080)

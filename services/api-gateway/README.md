@@ -23,7 +23,7 @@ pip install -r requirements.txt
 
 ### 2. Run Server
 ```bash
-python main.py
+python predict_router.py
 ```
 
 Server starts on: `http://localhost:8000`
