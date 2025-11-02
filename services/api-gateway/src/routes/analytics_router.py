@@ -4,7 +4,7 @@ Analytics routes - Time-series and velocity metrics
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.database.session import get_db
+from src.database.postgres_client import get_db
 from src.repositories.alert_repository import AlertRepository
 from src.services.alert_service import AlertService
 from src.api.models.api_models import VelocityAnalytics

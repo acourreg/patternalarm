@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 
-from src.database.session import get_db
+from src.database.postgres_client import get_db
 from src.repositories.alert_repository import AlertRepository
 from src.services.alert_service import AlertService
 from src.api.models.api_models import AlertsResponse, AlertDetail

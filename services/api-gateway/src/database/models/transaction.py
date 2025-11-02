@@ -4,7 +4,7 @@ SQLAlchemy models for fraud detection tables
 from datetime import datetime
 from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, ForeignKey, ARRAY, BigInteger
 from sqlalchemy.orm import relationship
-from src.database.session import Base
+from src.database.postgres_client import Base
 
 
 class SuspiciousTransaction(Base):

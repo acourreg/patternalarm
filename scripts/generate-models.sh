@@ -70,7 +70,7 @@ generate_scala() {
 generate_python() {
     echo -e "${YELLOW}🐍 PYTHON: Generating Pydantic models${NC}"
     
-    OUTPUT_DIR="$GATEWAY_DIR/src/models"
+    OUTPUT_DIR="$GATEWAY_DIR/src/api/models"
     mkdir -p "$OUTPUT_DIR"
     
     # List of files that will be generated (to add warning header)

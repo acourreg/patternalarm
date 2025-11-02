@@ -141,33 +141,36 @@ resource "aws_ecs_task_definition" "services" {
       }
     }
     
-    environment = concat(
-      [
-        { name = "AWS_REGION", value = var.aws_region },
-        { name = "ENVIRONMENT", value = "dev" },
-        { name = "PORT", value = tostring(each.value.port) }
-      ],
-      each.key == "flink-processor" ? [
-        { name = "KAFKA_BOOTSTRAP_SERVERS", value = aws_msk_cluster.main.bootstrap_brokers },
-        { name = "DB_HOST", value = aws_db_instance.main.address },
-        { name = "DB_PORT", value = tostring(aws_db_instance.main.port) },
-        { name = "DB_NAME", value = "patternalarm" },
-        { name = "API_GATEWAY_URL", value = "http://api-gateway.${var.project_name}.local:8080" }
-      ] : each.key == "api-gateway" ? [
-        { name = "DB_HOST", value = aws_db_instance.main.address },
-        { name = "DB_PORT", value = tostring(aws_db_instance.main.port) },
-        { name = "DB_NAME", value = "patternalarm" }
-      ] : each.key == "dashboard" ? [
-        { name = "API_GATEWAY_URL", value = "http://api-gateway.${var.project_name}.local:8080" }
+    environment = [
+      { name = "AWS_REGION", value = var.aws_region },
+      { name = "ENVIRONMENT", value = "dev" },
+      { name = "PORT", value = tostring(each.value.port) },
+      { name = "DB_URL", value = "jdbc:postgresql://${aws_db_instance.main.address}:${aws_db_instance.main.port}/patternalarm" },
+      { name = "DB_USER", value = "dbadmin" },
+      { name = "DB_HOST", value = aws_db_instance.main.address },
+      { name = "DB_PORT", value = tostring(aws_db_instance.main.port) },
+      { name = "DB_NAME", value = "patternalarm" },
+      { name = "KAFKA_BOOTSTRAP_SERVERS", value = aws_msk_cluster.main.bootstrap_brokers },
+      { name = "API_GATEWAY_URL", value = "http://api-gateway.${var.project_name}.local:8080" },
+      # ✅ Redis connection
+      { name = "REDIS_HOST", value = aws_elasticache_cluster.redis.cache_nodes[0].address },
+      { name = "REDIS_PORT", value = tostring(aws_elasticache_cluster.redis.cache_nodes[0].port) }
+    ]
+    
+    secrets = concat(
+      each.key != "dashboard" ? [
+        {
+          name      = "DB_PASSWORD"
+          valueFrom = aws_ssm_parameter.db_password.arn
+        }
+      ] : [],
+      var.redis_password != "" ? [
+        {
+          name      = "REDIS_PASSWORD"
+          valueFrom = aws_ssm_parameter.redis_password[0].arn
+        }
       ] : []
     )
-    
-    secrets = each.key != "dashboard" ? [
-      {
-        name      = "DB_PASSWORD"
-        valueFrom = aws_ssm_parameter.db_password.arn
-      }
-    ] : []
     
     healthCheck = {
       command     = ["CMD-SHELL", "curl -f http://localhost:${each.value.port}/health || exit 1"]
