@@ -33,13 +33,13 @@ class PredictRequest(BaseModel):
 
 class PredictResponse(BaseModel):
     """ML model prediction response"""
-    model_config = ConfigDict(protected_namespaces=())  # ✅ Fix pydantic warning
+    model_config = ConfigDict(protected_namespaces=())
 
     fraud_score: int
+    fraud_type: str = "unknown"  # ✅ ADD THIS
     model_version: str = "v1.0-mocked"
     inference_time_ms: int = 12
     transactions_analyzed: int
-
 
 # ============================================================================
 # QUERY LAYER (Dashboard → FastAPI)

@@ -3,6 +3,9 @@ FastAPI API Gateway
 - Model serving for Flink (POST /predict) - MOCKED
 - Query layer for Dashboard (GET /alerts, /analytics) - REAL DATABASE
 """
+import os
+os.environ['JAVA_HOME'] = '/opt/homebrew/opt/openjdk@17'
+
 from fastapi import FastAPI
 
 from src.routes.alerts_router import alerts_router

@@ -1,0 +1,18 @@
+
+# Async PostgreSQL
+# Core dependencies
+# Phase 2 Lambda dependencies (not needed for Phase 1)
+# Redis
+# Utilities
+# boto3==1.28.85# FastAPI
+SQLAlchemy==2.0.35
+asyncpg==0.29.0
+fastapi==0.115.0
+greenlet==3.1.1
+hiredis==3.0.0
+kafka-python==2.0.2
+psycopg2-binary==2.9.9
+pydantic==2.9.2
+python-dateutil==2.9.0
+redis==5.2.0
+uvicorn[standard]==0.32.0

@@ -1,51 +1,25 @@
-# Gradle
-.gradle/
-.gradle/*
-build/
-!gradle/wrapper/gradle-wrapper.jar
-!**/src/main/**/build/
-!**/src/test/**/build/
+# .gitignore (root level)
 
-# IDE - IntelliJ IDEA
-.idea/
-*.iml
-*.iws
-*.ipr
-out/
+# Virtual environment
+venv/
+*.pyc
+__pycache__/
 
-# IDE - VS Code
+# IDEs
 .vscode/
-*.code-workspace
+.idea/
 
-# IDE - Eclipse
-.classpath
-.project
-.settings/
-bin/
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
 
-# macOS
-.DS_Store
-.AppleDouble
-.LSOverride
+# Data
+data/raw/*.jsonl
+data/raw/*.csv
+data/processed/
 
-# Logs
-*.log
-logs/
-
-# Application specific
-application-local.yml
-application-local.properties
-
-# Sensitive data (never commit these)
-**/secrets/
-*.pem
-*.key
-
-# Temporary files
-*.tmp
-*.bak
-*.swp
-*~
-/.gradle/
-/.gradle/
-/.idea/
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
