@@ -1,6 +1,6 @@
 """
-Manual API Models (NOT auto-generated)
-These models are for FastAPI endpoints and should be edited manually
+FastAPI-specific models
+Use feature_store entities for predictions
 """
 
 from abc import ABC, abstractmethod
@@ -9,11 +9,12 @@ from typing import List
 
 from pydantic import BaseModel
 
-from .alert import Alert
-from .transactionevent import TransactionEvent
+# ✅ Import Kafka models (generated)
+from src.database.models.alert import Alert
+from src.database.models.transaction import TransactionEvent
 
-
-# src/api/models/api_models.py
+# ✅ Import feature store entities
+from feature_store.entities import Transaction, ActorTransactions
 
 
 # ============================================================================
@@ -42,31 +43,30 @@ class BaseFraudModel(ABC):
 
 
 # ============================================================================
-# Request/Response Models
+# Request/Response Models (API Layer)
 # ============================================================================
 
-class Transaction(BaseModel):
-    transaction_id: str
-    amount: float
-    currency: str
-    timestamp: str
-    payment_method: str
-    domain: str
-    session_length_sec: int = 0
-    country_from: str = None
-    country_to: str = None
-
-
 class PredictRequest(BaseModel):
-    """Single actor with grouped transactions"""
+    """
+    API request for fraud prediction
+    Maps to ActorTransactions from feature store
+    """
     actor_id: str
     domain: str
-    transactions: List[Transaction]
+    transactions: List[Transaction]  # ✅ From feature_store
     request_id: str = None
+
+    def to_actor_transactions(self) -> ActorTransactions:
+        """Convert to feature store entity"""
+        return ActorTransactions(
+            actor_id=self.actor_id,
+            domain=self.domain,
+            transactions=self.transactions
+        )
 
 
 class PredictResponse(BaseModel):
-    """Single fraud prediction for one actor"""
+    """Single fraud prediction result"""
     actor_id: str
     fraud_type: str
     is_fraud: bool
@@ -79,7 +79,7 @@ class PredictResponse(BaseModel):
 
 
 class BatchPredictRequest(BaseModel):
-    """Multiple actors for batch prediction"""
+    """Batch prediction for multiple actors"""
     predictions: List[PredictRequest]
     request_id: str = None
 
@@ -104,45 +104,43 @@ class HealthResponse(BaseModel):
     ml_version: str
     timestamp: datetime
 
+
+# ============================================================================
+# Alert Models (Dashboard/API)
+# ============================================================================
+
 class AlertDetail(BaseModel):
     """
     Extended alert with nested transactions
-    Clean composition: Alert + transactions, no duplication
+    Composition: Kafka Alert + TransactionEvents
     """
-    alert: Alert
-    transactions: List[TransactionEvent]
+    alert: Alert  # ✅ From Kafka models
+    transactions: List[TransactionEvent]  # ✅ From Kafka models
 
 
 class AlertsResponse(BaseModel):
-    """Paginated list of alerts"""
+    """Paginated alerts list"""
     alerts: List[Alert]
     total: int
     page: int = 1
 
 
-
 # ============================================================================
-# ANALYTICS (Dashboard → FastAPI)
+# Analytics (Dashboard)
 # ============================================================================
 
 class VelocityDataPoint(BaseModel):
-    """
-    Single data point for velocity time-series graph
-    Represents aggregated metrics for a time bucket
-    """
+    """Time-series data point for velocity graph"""
     domain: str
     x: float  # Time in seconds since start
-    y1_velocity: int  # Number of alerts in this bucket
-    y2_avg_score: float  # Average fraud score in this bucket
-    y3_cumulative: int  # Cumulative total alerts
+    y1_velocity: int  # Number of alerts
+    y2_avg_score: float  # Average fraud score
+    y3_cumulative: int  # Cumulative total
     trend_status: str  # BASELINE | SPIKE | TRENDING_UP | STABLE
 
 
 class VelocityAnalytics(BaseModel):
-    """
-    Time-series analytics for alert velocity graphing
-    Contains data points for multiple domains
-    """
+    """Time-series analytics for alert velocity"""
     data_points: List[VelocityDataPoint]
     bucket_size_seconds: int
     total_alerts: int

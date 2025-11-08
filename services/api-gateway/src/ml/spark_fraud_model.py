@@ -7,6 +7,9 @@ from pyspark.sql import SparkSession
 from pyspark.ml import PipelineModel
 import mlflow.spark
 
+from feature_store import ActorTransactions, Transaction
+
+
 from src.api.models.api_models import (
     BaseFraudModel,
     PredictRequest,
@@ -58,69 +61,24 @@ class SparkFraudModel(BaseFraudModel):
     def ml_version(self) -> str:
         return "spark-v1.0"
 
-    def _aggregate_features(self, request: PredictRequest) -> Dict:
-        """Aggregate features from grouped transactions"""
-        txns = [t.model_dump() for t in request.transactions]
-
-        # Aggregate metrics
-        amounts = [t['amount'] for t in txns]
-        sessions = [t.get('session_length_sec', 0) for t in txns]
-        timestamps = pd.to_datetime([t['timestamp'] for t in txns])
-
-        total_amount = sum(amounts)
-        avg_session = sum(sessions) / len(sessions) if sessions else 0
-        fraud_txn_count = len(txns)
-        time_delta_sec = (timestamps.max() - timestamps.min()).total_seconds()
-
-        # First transaction temporal features
-        first_txn = txns[0]
-        first_ts = timestamps[0]
-
-        # Country analysis
-        HIGH_RISK = ['KY', 'PA', 'BZ', 'VG']
-        country_mismatch = any(
-            t.get('country_from') and t.get('country_to')
-            and t['country_from'] != t['country_to']
-            for t in txns
-        )
-        involves_high_risk = any(
-            t.get('country_from') in HIGH_RISK or t.get('country_to') in HIGH_RISK
-            for t in txns
-        )
-
-        # Payment method (map unknown to known)
-        KNOWN_PAYMENTS = ['credit_card', 'debit_card', 'paypal', 'apple_pay', 'google_pay']
-        payment = first_txn.get('payment_method', 'credit_card')
-        if payment not in KNOWN_PAYMENTS:
-            payment = 'credit_card'
-
-        return {
-            "amount": total_amount,
-            "fraud_txn_count": fraud_txn_count,
-            "session_length_sec": avg_session,
-            "country_mismatch": 1 if country_mismatch else 0,
-            "hour_of_day": first_ts.hour,
-            "day_of_week": first_ts.isoweekday(),
-            "is_weekend": 1 if first_ts.isoweekday() in [6, 7] else 0,
-            "is_near_threshold": 1 if 9500 <= total_amount < 10000 else 0,
-            "involves_high_risk_country": 1 if involves_high_risk else 0,
-            "is_rapid_session": 1 if avg_session < 120 else 0,
-            "amount_per_txn": total_amount / fraud_txn_count,
-            "session_efficiency": total_amount / (avg_session + 1),
-            "night_rapid_combo": 1 if ((first_ts.hour < 6 or first_ts.hour > 22) and avg_session < 120) else 0,
-            "payment_method": payment,
-            "domain": request.domain,
-            "fraud_first_seen": first_ts,
-            "time_delta_sec": time_delta_sec
-        }
-
     async def predict_single(self, request: PredictRequest) -> PredictResponse:
         """Predict fraud for single actor"""
         start = time.time()
 
-        # Aggregate features
-        features = self._aggregate_features(request)
+        # ✅ Convert to feature store entity
+        actor = ActorTransactions(
+            actor_id=request.actor_id,
+            domain=request.domain,
+            transactions=[
+                Transaction(**t.model_dump())
+                for t in request.transactions
+            ]
+        )
+
+        # ✅ Use feature store for feature extraction
+        features = FeatureEngineering.extract_features_pandas(actor)
         time_delta = features.pop('time_delta_sec')
+        features.pop('fraud_first_seen')
 
         # Create DataFrame
         df = pd.DataFrame([features])
@@ -148,20 +106,30 @@ class SparkFraudModel(BaseFraudModel):
         """Predict fraud for multiple actors"""
         start = time.time()
 
-        # Aggregate all features
-        all_features = [
-            self._aggregate_features(pred_req)
+        # ✅ Convert all to feature store entities
+        actors = [
+            ActorTransactions(
+                actor_id=pred_req.actor_id,
+                domain=pred_req.domain,
+                transactions=[Transaction(**t.model_dump()) for t in pred_req.transactions]
+            )
             for pred_req in request.predictions
         ]
 
-        # Extract time deltas
-        time_deltas = [f.pop('time_delta_sec') for f in all_features]
+        # ✅ Extract features using feature store
+        all_features = [
+            FeatureEngineering.extract_features_pandas(actor)
+            for actor in actors
+        ]
 
-        # Create batch DataFrame
-        df = pd.DataFrame(all_features)
-        spark_df = self._spark.createDataFrame(df)
+        # Extract metadata
+        time_deltas = [f.pop('time_delta_sec') for f in all_features]
+        for f in all_features:
+            f.pop('fraud_first_seen')
 
         # Batch predict
+        df = pd.DataFrame(all_features)
+        spark_df = self._spark.createDataFrame(df)
         predictions_df = self._model.transform(spark_df)
         results = predictions_df.select("prediction", "probability").collect()
 
@@ -179,7 +147,7 @@ class SparkFraudModel(BaseFraudModel):
                 total_amount=round(all_features[i]['amount'], 2),
                 time_window_sec=round(time_deltas[i], 2),
                 ml_version=self.ml_version,
-                inference_time_ms=0  # Filled at batch level
+                inference_time_ms=0
             ))
 
         total_time = (time.time() - start) * 1000
