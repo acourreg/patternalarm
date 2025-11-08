@@ -3,59 +3,106 @@ Manual API Models (NOT auto-generated)
 These models are for FastAPI endpoints and should be edited manually
 """
 
-from typing import List, Dict, Optional
-from pydantic import BaseModel, ConfigDict
+from abc import ABC, abstractmethod
 from datetime import datetime
+from typing import List
+
+from pydantic import BaseModel
+
 from .alert import Alert
 from .transactionevent import TransactionEvent
 
 
+# src/api/models/api_models.py
+
+
 # ============================================================================
-# MODEL SERVING (Flink → FastAPI)
+# Base Model
 # ============================================================================
+
+class BaseFraudModel(ABC):
+    """Abstract base for fraud models"""
+
+    @property
+    @abstractmethod
+    def ml_version(self) -> str:
+        pass
+
+    @abstractmethod
+    async def predict_single(self, request: 'PredictRequest') -> 'PredictResponse':
+        pass
+
+    @abstractmethod
+    async def predict_batch(self, request: 'BatchPredictRequest') -> 'BatchPredictResponse':
+        pass
+
+    @abstractmethod
+    def health_check(self) -> dict:
+        pass
+
+
+# ============================================================================
+# Request/Response Models
+# ============================================================================
+
+class Transaction(BaseModel):
+    transaction_id: str
+    amount: float
+    currency: str
+    timestamp: str
+    payment_method: str
+    domain: str
+    session_length_sec: int = 0
+    country_from: str = None
+    country_to: str = None
+
 
 class PredictRequest(BaseModel):
-    """
-    ML prediction request from Flink processor
-    Contains aggregated window data + raw transactions
-    """
-    model_config = ConfigDict(protected_namespaces=())  # ✅ Fix pydantic warning
-
+    """Single actor with grouped transactions"""
     actor_id: str
     domain: str
-    transaction_count: int
-    total_amount: float
-    time_delta_sec: int
-    window_start: datetime
-    window_end: datetime
-    transactions: List[TransactionEvent]
+    transactions: List[Transaction]
+    request_id: str = None
 
 
 class PredictResponse(BaseModel):
-    """ML model prediction response"""
-    model_config = ConfigDict(protected_namespaces=())
-
-    fraud_score: int
-    fraud_type: str = "unknown"  # ✅ ADD THIS
-    model_version: str = "v1.0-mocked"
-    inference_time_ms: int = 12
+    """Single fraud prediction for one actor"""
+    actor_id: str
+    fraud_type: str
+    is_fraud: bool
+    confidence: float
     transactions_analyzed: int
+    total_amount: float
+    time_window_sec: float
+    ml_version: str
+    inference_time_ms: float
+
+
+class BatchPredictRequest(BaseModel):
+    """Multiple actors for batch prediction"""
+    predictions: List[PredictRequest]
+    request_id: str = None
+
+
+class BatchPredictResponse(BaseModel):
+    """Batch prediction results"""
+    predictions: List[PredictResponse]
+    ml_version: str
+    total_inference_time_ms: float
+    actors_analyzed: int
+
 
 # ============================================================================
-# QUERY LAYER (Dashboard → FastAPI)
+# Health Check
 # ============================================================================
 
 class HealthResponse(BaseModel):
-    """Health check response"""
-    model_config = ConfigDict(protected_namespaces=())  # ✅ Fix pydantic warning
-
     status: str
     database: str
     redis: str
-    model_loaded: bool
-    model_version: str
+    is_ml_loaded: bool
+    ml_version: str
     timestamp: datetime
-
 
 class AlertDetail(BaseModel):
     """

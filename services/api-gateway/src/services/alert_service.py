@@ -1,19 +1,18 @@
 """
 Alert Service - Business logic layer
 """
-from typing import Optional
 import logging
-from src.repositories.alert_repository import AlertRepository
+from typing import Optional
+
 from src.api.mappers import map_alert_to_api, map_alert_with_transactions
 from src.api.models.api_models import (
-    AlertDetail, AlertsResponse, VelocityAnalytics, VelocityDataPoint,
-    PredictRequest, PredictResponse
+    AlertDetail, AlertsResponse, VelocityAnalytics, VelocityDataPoint
 )
 from src.database.redis_client import RedisClient
-from src.ml.mlflow_model import MLflowFraudModel  # ✅ Changed import
+from src.ml.mlflow_fraud_model import MLflowFraudModel
+from src.repositories.alert_repository import AlertRepository
 
 logger = logging.getLogger(__name__)
-
 
 class AlertService:
     """Service for alert business logic"""
@@ -69,25 +68,3 @@ class AlertService:
         await RedisClient.set_cached(cache_key, result, ttl_seconds=10)
         logger.info(f"💾 CACHED: {cache_key} (TTL: 10s)")
         return result
-
-    async def predict_fraud(self, request: PredictRequest) -> PredictResponse:
-        request_dict = {
-            "actor_id": request.actor_id,
-            "domain": request.domain,
-            "transaction_count": request.transaction_count,
-            "total_amount": request.total_amount,
-            "time_delta_sec": request.time_delta_sec,
-            "window_start": request.window_start,
-            "window_end": request.window_end,
-            "transactions": [t.model_dump() for t in request.transactions]
-        }
-
-        result = await self.model.predict(request_dict)
-
-        return PredictResponse(
-            fraud_score=result["fraud_score"],
-            fraud_type=result["fraud_type"],  # ✅ ADD THIS
-            model_version=result["model_version"],
-            inference_time_ms=result["inference_time_ms"],
-            transactions_analyzed=result["transactions_analyzed"]
-        )
