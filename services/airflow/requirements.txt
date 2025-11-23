@@ -1,0 +1,16 @@
+# Airflow providers
+apache-airflow-providers-amazon==8.0.0
+apache-airflow-providers-apache-spark==4.0.0
+
+# PySpark
+pyspark==3.3.0
+
+# ML
+mlflow==2.10.0
+
+# Light deps
+pandas==2.2.2
+numpy==1.26.4
+
+# ✅ Feature store from Git (subdirectory)
+git+https://github.com/acourreg/patternalarm.git@main#subdirectory=feature-store&egg=patternalarm-feature-store

@@ -3,9 +3,9 @@ PatternAlarm Feature Store
 Shared feature engineering logic between training and serving
 """
 
-from features import FeatureEngineering
-from entities import Transaction, ActorTransactions
-from contants import (
+from .features import FeatureEngineering
+from .entities import Transaction, ActorTransactions
+from .constants import (
     HIGH_RISK_COUNTRIES,
     KNOWN_PAYMENT_METHODS,
     FRAUD_LABELS

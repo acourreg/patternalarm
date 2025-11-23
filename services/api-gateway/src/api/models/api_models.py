@@ -1,17 +1,14 @@
-"""
-FastAPI-specific models
-Use feature_store entities for predictions
-"""
+# services/api-gateway/src/api/models/api_models.py
 
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
-# ✅ Import Kafka models (generated)
-from src.database.models.alert import Alert
-from src.database.models.transaction import TransactionEvent
+# ✅ Import Kafka Pydantic models (for validation)
+from src.api.models.alert import Alert
+from src.api.models.transactionevent import TransactionEvent
 
 # ✅ Import feature store entities
 from feature_store.entities import Transaction, ActorTransactions
@@ -54,7 +51,7 @@ class PredictRequest(BaseModel):
     actor_id: str
     domain: str
     transactions: List[Transaction]  # ✅ From feature_store
-    request_id: str = None
+    request_id: Optional[str] = None
 
     def to_actor_transactions(self) -> ActorTransactions:
         """Convert to feature store entity"""
@@ -81,7 +78,7 @@ class PredictResponse(BaseModel):
 class BatchPredictRequest(BaseModel):
     """Batch prediction for multiple actors"""
     predictions: List[PredictRequest]
-    request_id: str = None
+    request_id: Optional[str] = None
 
 
 class BatchPredictResponse(BaseModel):
@@ -106,21 +103,72 @@ class HealthResponse(BaseModel):
 
 
 # ============================================================================
-# Alert Models (Dashboard/API)
+# Alert Models (Dashboard/API) - Pydantic wrappers for DB models
 # ============================================================================
 
 class AlertDetail(BaseModel):
     """
     Extended alert with nested transactions
-    Composition: Kafka Alert + TransactionEvents
+    Converts SQLAlchemy DBAlert + DBTransaction → Pydantic
     """
-    alert: Alert  # ✅ From Kafka models
-    transactions: List[TransactionEvent]  # ✅ From Kafka models
+    model_config = ConfigDict(from_attributes=True)  # ✅ Enable ORM mode
+
+    alert: Alert  # ✅ Pydantic from Kafka schema
+    transactions: List[TransactionEvent]  # ✅ Pydantic from Kafka schema
+
+
+class AlertResponse(BaseModel):
+    """
+    Single alert response (wraps DBAlert)
+    """
+    model_config = ConfigDict(from_attributes=True)
+
+    # Map DBAlert fields
+    alert_id: int
+    alert_type: str
+    domain: str
+    actor_id: str
+    severity: str
+    fraud_score: int
+    transaction_count: int
+    total_amount: float
+    first_seen: datetime
+    last_seen: datetime
+    created_at: datetime
+
+    # Optional fields
+    window_seconds: Optional[int] = None
+    baseline_avg: Optional[float] = None
+    patterns_detected: Optional[List[str]] = None
+    confidence: Optional[int] = None
+    model_version: Optional[str] = None
+
+    @classmethod
+    def from_db(cls, db_alert):
+        """Convert DBAlert → AlertResponse"""
+        return cls(
+            alert_id=db_alert.alert_id,
+            alert_type=db_alert.alert_type,
+            domain=db_alert.domain,
+            actor_id=db_alert.actor_id,
+            severity=db_alert.severity,
+            fraud_score=db_alert.fraud_score,
+            transaction_count=db_alert.transaction_count,
+            total_amount=db_alert.total_amount,
+            first_seen=db_alert.first_seen,
+            last_seen=db_alert.last_seen,
+            created_at=db_alert.created_at,
+            window_seconds=db_alert.window_seconds,
+            baseline_avg=db_alert.baseline_avg,
+            patterns_detected=db_alert.patterns_detected,
+            confidence=db_alert.confidence,
+            model_version=db_alert.model_version
+        )
 
 
 class AlertsResponse(BaseModel):
     """Paginated alerts list"""
-    alerts: List[Alert]
+    alerts: List[AlertResponse]  # ✅ Pydantic wrapper
     total: int
     page: int = 1
 

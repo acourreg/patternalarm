@@ -3,9 +3,10 @@ Shared entities between training and serving
 Maps to Kafka TransactionEvent schema
 """
 
-from typing import Optional, List
-from pydantic import BaseModel
 from datetime import datetime
+from typing import Optional, List
+
+from pydantic import BaseModel
 
 
 class Transaction(BaseModel):

@@ -7,7 +7,7 @@ from sqlalchemy.orm import relationship
 from src.database.postgres_client import Base
 
 
-class FraudAlert(Base):
+class DBAlert(Base):
     """Fraud alert model"""
     __tablename__ = "fraud_alerts"
 

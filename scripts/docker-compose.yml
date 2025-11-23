@@ -1,6 +1,10 @@
 version: '3.8'
 
 services:
+  # ============================================================================
+  # Message Broker (simule AWS MSK)
+  # ============================================================================
+  
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
     hostname: zookeeper
@@ -44,6 +48,10 @@ services:
     networks:
       - patternalarm
 
+  # ============================================================================
+  # Database (simule AWS RDS)
+  # ============================================================================
+  
   postgres:
     image: postgres:15-alpine
     container_name: postgres
@@ -55,13 +63,60 @@ services:
       POSTGRES_PASSWORD: password
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      # ✅ Correct path: sql/ is in same directory as docker-compose.yml
       - ./sql/2-rds-schema.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U dbadmin -d patternalarm"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - patternalarm
+
+  # ============================================================================
+  # Spark Cluster (simule AWS EMR)
+  # ============================================================================
+  
+  spark-master:
+    platform: linux/amd64
+    image: bde2020/spark-master:3.3.0-hadoop3.3
+    container_name: spark-master
+    hostname: spark-master
+    ports:
+      - "7077:7077"   # Spark master port
+      - "8081:8080"   # Spark UI
+    environment:
+      - INIT_DAEMON_STEP=setup_spark
+    volumes:
+      - ../scripts:/opt/spark-scripts
+      - ../data:/opt/spark-data
+      - ../feature-store:/opt/feature-store
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - patternalarm
+
+  spark-worker:
+    platform: linux/amd64
+    image: bde2020/spark-worker:3.3.0-hadoop3.3
+    container_name: spark-worker
+    hostname: spark-worker
+    depends_on:
+      spark-master:
+        condition: service_healthy
+    ports:
+      - "8082:8081"   # Worker UI
+    environment:
+      - SPARK_MASTER=spark://spark-master:7077
+      - SPARK_WORKER_MEMORY=2G
+      - SPARK_WORKER_CORES=2
+    volumes:
+      - ../scripts:/opt/spark-scripts
+      - ../data:/opt/spark-data
+      - ../feature-store:/opt/feature-store
     networks:
       - patternalarm
 

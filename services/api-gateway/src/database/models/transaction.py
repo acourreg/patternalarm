@@ -7,7 +7,7 @@ from sqlalchemy.orm import relationship
 from src.database.postgres_client import Base
 
 
-class SuspiciousTransaction(Base):
+class DBTransaction(Base):
     """Suspicious transaction model"""
     __tablename__ = "suspicious_transactions"
 

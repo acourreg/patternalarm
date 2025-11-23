@@ -1,15 +1,15 @@
 # src/ml/spark_fraud_model.py
 
-from typing import Optional, Dict, Any
 import time
-import pandas as pd
-from pyspark.sql import SparkSession
-from pyspark.ml import PipelineModel
+from typing import Optional, Dict, Any
+
 import mlflow.spark
+import pandas as pd
+from pyspark.ml import PipelineModel
+from pyspark.sql import SparkSession
 
-from feature_store import ActorTransactions, Transaction
-
-
+# ✅ Import feature store components
+from feature_store.features import FeatureEngineering
 from src.api.models.api_models import (
     BaseFraudModel,
     PredictRequest,
@@ -66,14 +66,7 @@ class SparkFraudModel(BaseFraudModel):
         start = time.time()
 
         # ✅ Convert to feature store entity
-        actor = ActorTransactions(
-            actor_id=request.actor_id,
-            domain=request.domain,
-            transactions=[
-                Transaction(**t.model_dump())
-                for t in request.transactions
-            ]
-        )
+        actor = request.to_actor_transactions()  # ✅ Use method from PredictRequest
 
         # ✅ Use feature store for feature extraction
         features = FeatureEngineering.extract_features_pandas(actor)
@@ -107,14 +100,7 @@ class SparkFraudModel(BaseFraudModel):
         start = time.time()
 
         # ✅ Convert all to feature store entities
-        actors = [
-            ActorTransactions(
-                actor_id=pred_req.actor_id,
-                domain=pred_req.domain,
-                transactions=[Transaction(**t.model_dump()) for t in pred_req.transactions]
-            )
-            for pred_req in request.predictions
-        ]
+        actors = [pred_req.to_actor_transactions() for pred_req in request.predictions]
 
         # ✅ Extract features using feature store
         all_features = [

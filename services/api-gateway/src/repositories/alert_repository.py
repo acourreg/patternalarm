@@ -5,7 +5,7 @@ Minimal implementation for get_alerts() and get_alert_by_id()
 from typing import List, Optional, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, text
-from src.database.models.alert import FraudAlert
+from src.database.models.alert import DBAlert
 
 
 class AlertRepository:
@@ -20,19 +20,19 @@ class AlertRepository:
         severity: Optional[str] = None,
         limit: int = 10,
         page: int = 1
-    ) -> Tuple[List[FraudAlert], int]:
+    ) -> Tuple[List[DBAlert], int]:
         """
         Get paginated list of alerts with filters
         Returns: (alerts, total_count)
         """
         # Build base query
-        query = select(FraudAlert)
+        query = select(DBAlert)
         
         # Apply filters
         if domain:
-            query = query.where(FraudAlert.domain == domain)
+            query = query.where(DBAlert.domain == domain)
         if severity:
-            query = query.where(FraudAlert.severity == severity)
+            query = query.where(DBAlert.severity == severity)
 
         # Get total count for pagination
         count_query = select(func.count()).select_from(query.subquery())
@@ -41,7 +41,7 @@ class AlertRepository:
 
         # Apply pagination and ordering
         offset = (page - 1) * limit
-        query = query.order_by(FraudAlert.last_seen.desc()).limit(limit).offset(offset)
+        query = query.order_by(DBAlert.last_seen.desc()).limit(limit).offset(offset)
 
         # Execute query
         result = await self.session.execute(query)
@@ -49,12 +49,12 @@ class AlertRepository:
 
         return list(alerts), total
 
-    async def get_alert_by_id(self, alert_id: int) -> Optional[FraudAlert]:
+    async def get_alert_by_id(self, alert_id: int) -> Optional[DBAlert]:
         """
         Get alert by ID with nested transactions
         Relationship loading is handled by lazy="selectin" in model
         """
-        query = select(FraudAlert).where(FraudAlert.alert_id == alert_id)
+        query = select(DBAlert).where(DBAlert.alert_id == alert_id)
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
 

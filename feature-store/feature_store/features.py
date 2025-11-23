@@ -6,11 +6,10 @@ Used by both:
 - Serving (FastAPI)
 """
 
-from typing import Dict, List
 from datetime import datetime
-import pandas as pd
+from typing import Dict, List
 
-from contants import (
+from .constants import (
     HIGH_RISK_COUNTRIES,
     KNOWN_PAYMENT_METHODS,
     NEAR_THRESHOLD_MIN,
