@@ -4,7 +4,7 @@ set -e
 echo "🔧 Initializing Airflow..."
 
 # Initialize database
-airflow db init
+airflow db migrate  # ✅ Use migrate instead of deprecated init
 
 # Create admin user
 airflow users create \
@@ -15,11 +15,11 @@ airflow users create \
     --role Admin \
     --email admin@admin.com 2>/dev/null || echo "User exists"
 
-# ✅ Create Spark connection
+# ✅ Create Spark connection with spark:// prefix
 airflow connections delete spark_default 2>/dev/null || true
 airflow connections add spark_default \
     --conn-type spark \
-    --conn-host spark-master \
+    --conn-host 'spark://spark-master' \
     --conn-port 7077 \
     --conn-extra '{"queue": "default", "deploy-mode": "client"}'
 

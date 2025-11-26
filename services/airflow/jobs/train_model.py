@@ -1,131 +1,39 @@
-# services/airflow/jobs/train_model.py
-
-from pyspark.sql import SparkSession
-from pyspark.ml.feature import VectorAssembler, StandardScaler, StringIndexer
-from pyspark.ml.classification import RandomForestClassifier
-from pyspark.ml import Pipeline
-from pyspark.ml.evaluation import MulticlassClassificationEvaluator, BinaryClassificationEvaluator
-import argparse
+# services/airflow/tests/test_train_model.py
+import pytest
 import sys
-import json
+import os
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'jobs'))
 
 
-def main(features_path, model_output):
-    print("=" * 60)
-    print("🤖 Step 2: Train Model")
-    print("=" * 60)
+class TestTrainModel:
+    """Tests for train_model.py job"""
 
-    spark = SparkSession.builder \
-        .appName("Fraud-TrainModel") \
-        .config("spark.sql.shuffle.partitions", "4") \
-        .getOrCreate()
+    def test_job_imports(self):
+        """✅ Job imports work."""
+        from train_model import main
+        assert main is not None
 
-    print(f"✅ Spark version: {spark.version}")
-    print(f"📂 Loading features from: {features_path}")
+    def test_train_pipeline(self, spark, sample_features, temp_dir):
+        """✅ Training pipeline works end-to-end."""
+        from pyspark.ml.feature import VectorAssembler, StringIndexer
+        from pyspark.ml.classification import RandomForestClassifier
+        from pyspark.ml import Pipeline
 
-    # Load features
-    df = spark.read.parquet(features_path)
+        df = spark.read.parquet(sample_features)
 
-    print(f"✅ Loaded {df.count()} feature vectors")
-    df.printSchema()
+        feature_cols = ['amount', 'transaction_count', 'amount_per_transaction',
+                        'time_delta_sec', 'velocity_per_sec']
 
-    # ✅ Prepare features (same as notebook)
-    feature_cols = [
-        'amount', 'transaction_count', 'amount_per_transaction',
-        'time_delta_sec', 'velocity_per_sec'
-    ]
+        pipeline = Pipeline(stages=[
+            StringIndexer(inputCol="fraud_label", outputCol="label"),
+            VectorAssembler(inputCols=feature_cols, outputCol="features"),
+            RandomForestClassifier(labelCol="label", featuresCol="features", numTrees=10, seed=42)
+        ])
 
-    # String indexer for labels
-    indexer = StringIndexer(
-        inputCol="fraud_label",
-        outputCol="label"
-    )
+        model = pipeline.fit(df)
+        model_path = f"{temp_dir}/model"
+        model.write().overwrite().save(model_path)
 
-    # Vector assembler
-    assembler = VectorAssembler(
-        inputCols=feature_cols,
-        outputCol="features_raw"
-    )
-
-    # Standard scaler
-    scaler = StandardScaler(
-        inputCol="features_raw",
-        outputCol="features",
-        withStd=True,
-        withMean=True
-    )
-
-    # Random Forest classifier
-    rf = RandomForestClassifier(
-        labelCol="label",
-        featuresCol="features",
-        numTrees=100,
-        maxDepth=10,
-        seed=42
-    )
-
-    # Pipeline
-    pipeline = Pipeline(stages=[indexer, assembler, scaler, rf])
-
-    # Train/test split
-    train_df, test_df = df.randomSplit([0.8, 0.2], seed=42)
-
-    print(f"📊 Train: {train_df.count()} | Test: {test_df.count()}")
-
-    # Train
-    print("🔧 Training model...")
-    model = pipeline.fit(train_df)
-
-    print("✅ Model trained!")
-
-    # Evaluate
-    predictions = model.transform(test_df)
-
-    # Metrics
-    evaluator_acc = MulticlassClassificationEvaluator(
-        labelCol="label",
-        predictionCol="prediction",
-        metricName="accuracy"
-    )
-
-    evaluator_auc = BinaryClassificationEvaluator(
-        labelCol="label",
-        rawPredictionCol="rawPrediction",
-        metricName="areaUnderROC"
-    )
-
-    accuracy = evaluator_acc.evaluate(predictions)
-    auc = evaluator_auc.evaluate(predictions)
-
-    print(f"📊 Accuracy: {accuracy:.4f}")
-    print(f"📊 AUC: {auc:.4f}")
-
-    # Save metrics
-    metrics = {
-        'accuracy': round(accuracy, 4),
-        'auc': round(auc, 4),
-        'train_samples': train_df.count(),
-        'test_samples': test_df.count()
-    }
-
-    with open('/tmp/model_metrics.json', 'w') as f:
-        json.dump(metrics, f, indent=2)
-
-    # Save model
-    model.write().overwrite().save(model_output)
-
-    print(f"💾 Model saved to: {model_output}")
-    print(f"📊 Metrics saved to: /tmp/model_metrics.json")
-    print("🎉 Training complete!")
-
-    spark.stop()
-    return 0
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--features-path', required=True)
-    parser.add_argument('--model-output', required=True)
-    args = parser.parse_args()
-
-    sys.exit(main(args.features_path, args.model_output))
+        from pyspark.ml import PipelineModel
+        assert PipelineModel.load(model_path) is not None

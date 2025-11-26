@@ -28,7 +28,7 @@ with DAG(
         conn_id='spark_default',
         name='fraud-extract-features',
         application_args=[
-            '--input-path', '/opt/spark-data/transactions',
+            '--input-path', '/opt/spark-data/processed/training_data.parquet',  # ✅ Fix
             '--output-path', '/opt/spark-data/features'
         ],
         verbose=True

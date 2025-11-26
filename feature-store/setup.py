@@ -7,7 +7,7 @@ readme = Path(__file__).parent / "README.md"
 long_description = readme.read_text() if readme.exists() else ""
 
 setup(
-    name="patternalarm-feature-store",  # ✅ Renamed
+    name="patternalarm-feature-store",
     version="0.1.0",
     author="Aurelien Courreges-Clercq",
     description="Feature engineering for PatternAlarm fraud detection",
@@ -22,7 +22,7 @@ setup(
     ],
 
     extras_require={
-        "spark": ["pyspark>=3.5.0"],
+        "spark": ["pyspark>=3.3.0,<4.0.0"],  # ✅ Compatible with Spark 3.3
         "dev": ["pytest", "black", "mypy"]
     },
 

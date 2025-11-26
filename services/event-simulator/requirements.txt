@@ -1,5 +1,8 @@
-# Core dependencies
+# Kafka client
 kafka-python==2.0.2
 
-# Phase 2 Lambda dependencies (not needed for Phase 1)
-# boto3==1.28.85
+# AWS SDK (for Lambda deployment)
+boto3==1.28.85
+
+# Testing
+pytest>=7.0.0

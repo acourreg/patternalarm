@@ -1,6 +1,6 @@
 # services/airflow/Dockerfile
 
-FROM apache/airflow:2.8.0-python3.11
+FROM apache/airflow:2.8.0-python3.9
 
 USER root
 
@@ -12,7 +12,6 @@ RUN apt-get update && \
 ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-arm64
 ENV PATH=$PATH:$JAVA_HOME/bin
 
-# ✅ Paths relatifs (from services/airflow/)
 COPY entrypoint.sh /opt/airflow/entrypoint.sh
 RUN chmod +x /opt/airflow/entrypoint.sh
 
@@ -28,6 +27,7 @@ COPY requirements.txt /tmp/
 RUN pip install -r /tmp/requirements.txt
 
 COPY dags/ /opt/airflow/dags/
+COPY jobs/ /opt/airflow/jobs/
 
 EXPOSE 8080
 
