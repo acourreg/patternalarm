@@ -57,4 +57,4 @@ class DBTransaction(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     # Relationship
-    alert = relationship("FraudAlert", back_populates="transactions")
+    alert = relationship("DBAlert", back_populates="transactions")

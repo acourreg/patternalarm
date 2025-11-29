@@ -1,0 +1,41 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+      - REPOSITORY_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME
+      - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      - IMAGE_TAG=airflow-latest
+
+  build:
+    commands:
+      - echo Build started on `date`
+      - echo Building feature_store.zip...
+      - cd feature-store
+      - zip -r feature_store.zip feature_store
+      - cd ..
+      - echo Building the Docker image...
+      - cd services/airflow
+      - mkdir -p feature-store/dist
+      - cp ../../feature-store/feature_store.zip feature-store/dist/
+      - docker build -t $REPOSITORY_URI:$IMAGE_TAG .
+      - docker tag $REPOSITORY_URI:$IMAGE_TAG $REPOSITORY_URI:$COMMIT_HASH
+
+  post_build:
+    commands:
+      - echo Build completed on `date`
+      - echo Pushing the Docker images...
+      - docker push $REPOSITORY_URI:$IMAGE_TAG
+      - docker push $REPOSITORY_URI:$COMMIT_HASH
+      - echo Image pushed to $REPOSITORY_URI:$IMAGE_TAG
+      - echo Uploading Spark jobs to S3...
+      - aws s3 cp jobs/extract_features.py s3://$S3_BUCKET/spark-jobs/
+      - aws s3 cp jobs/train_model.py s3://$S3_BUCKET/spark-jobs/
+      - echo Uploading feature_store.zip to S3...
+      - aws s3 cp feature-store/dist/feature_store.zip s3://$S3_BUCKET/libs/
+      - echo S3 artifacts uploaded
+      - echo Deploying to ECS...
+      - aws ecs update-service --cluster $PROJECT_NAME-cluster --service $PROJECT_NAME-airflow --force-new-deployment --region $AWS_DEFAULT_REGION
+      - echo Deployment triggered successfully

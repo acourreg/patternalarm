@@ -113,4 +113,5 @@ output "redis_connection_info" {
     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   EOT
   description = "Redis connection information"
+  sensitive   = true
 }

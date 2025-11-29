@@ -1,10 +1,12 @@
 #!/bin/bash
+# services/airflow/entrypoint.sh
+
 set -e
 
 echo "🔧 Initializing Airflow..."
 
 # Initialize database
-airflow db migrate  # ✅ Use migrate instead of deprecated init
+airflow db migrate
 
 # Create admin user
 airflow users create \
@@ -13,18 +15,10 @@ airflow users create \
     --firstname Admin \
     --lastname User \
     --role Admin \
-    --email admin@admin.com 2>/dev/null || echo "User exists"
-
-# ✅ Create Spark connection with spark:// prefix
-airflow connections delete spark_default 2>/dev/null || true
-airflow connections add spark_default \
-    --conn-type spark \
-    --conn-host 'spark://spark-master' \
-    --conn-port 7077 \
-    --conn-extra '{"queue": "default", "deploy-mode": "client"}'
+    --email admin@patternalarm.local 2>/dev/null || echo "User exists"
 
 echo "🚀 Starting Airflow services..."
 
-# Start webserver and scheduler
-airflow webserver --port 8080 &
-airflow scheduler
+# Start scheduler in background, webserver in foreground
+airflow scheduler &
+exec airflow webserver --port 8080

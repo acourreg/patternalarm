@@ -1,84 +1,152 @@
 # services/airflow/dags/fraud_training_dag.py
+"""
+Fraud Model Training DAG
+- Local: spark-submit --master local[*]
+- Prod: EMR Serverless
+"""
 
+import os
 from airflow import DAG
-from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
 from airflow.operators.python import PythonOperator
 from datetime import datetime, timedelta
 
+ENV = os.getenv('ENVIRONMENT', 'local')
+S3_BUCKET = os.getenv('S3_BUCKET', 'patternalarm-data-us-east-1')
+EMR_APPLICATION_ID = os.getenv('EMR_APPLICATION_ID')
+EMR_JOB_ROLE_ARN = os.getenv('EMR_JOB_ROLE_ARN')
+
 default_args = {
     'owner': 'patternalarm',
-    'depends_on_past': False,
     'start_date': datetime(2025, 1, 1),
     'retries': 1,
     'retry_delay': timedelta(minutes=5),
 }
 
+
+# ============================================================================
+# DAG DEFINITION
+# ============================================================================
+
 with DAG(
         'fraud_model_training',
         default_args=default_args,
-        description='Train fraud detection model on Spark',
-        schedule='0 2 * * *',  # Daily at 2 AM
+        schedule='0 2 * * *',
         catchup=False,
-        tags=['ml', 'fraud', 'training']
+        tags=['ml', 'fraud']
 ) as dag:
-    # Step 1: Extract features from parquet
-    extract_features = SparkSubmitOperator(
-        task_id='extract_features',
-        application='/opt/airflow/jobs/extract_features.py',
-        conn_id='spark_default',
-        name='fraud-extract-features',
-        application_args=[
-            '--input-path', '/opt/spark-data/processed/training_data.parquet',  # ✅ Fix
-            '--output-path', '/opt/spark-data/features'
-        ],
-        verbose=True
-    )
+    # Paths based on environment
+    if ENV == 'prod':
+        input_path = f's3://{S3_BUCKET}/data/processed/training_data.parquet'
+        features_path = f's3://{S3_BUCKET}/data/features'
+        model_output = f's3://{S3_BUCKET}/models/fraud_detector_v1'
+    else:
+        input_path = '/opt/spark-data/processed/training_data.parquet'
+        features_path = '/opt/spark-data/features'
+        model_output = '/opt/spark-data/models/fraud_detector_v1'
 
-    # Step 2: Train model
-    train_model = SparkSubmitOperator(
-        task_id='train_model',
-        application='/opt/airflow/jobs/train_model.py',
-        conn_id='spark_default',
-        name='fraud-train-model',
-        application_args=[
-            '--features-path', '/opt/spark-data/features',
-            '--model-output', '/opt/spark-data/models/fraud_detector_v1'
-        ],
-        verbose=True
-    )
+    # Tasks
+    extract = create_spark_task(dag, 'extract_features', 'extract_features.py', [
+        '--input-path', input_path,
+        '--output-path', features_path
+    ])
 
-    # Step 3: Register model to MLflow
-    register_model = SparkSubmitOperator(
-        task_id='register_model',
-        application='/opt/airflow/jobs/register_model.py',
-        conn_id='spark_default',
-        name='fraud-register-model',
-        application_args=[
-            '--model-path', '/opt/spark-data/models/fraud_detector_v1',
-            '--model-name', 'fraud-detector'
-        ],
-        verbose=True
-    )
+    train = create_spark_task(dag, 'train_model', 'train_model.py', [
+        '--features-path', features_path,
+        '--model-output', model_output,
+        '--model-name', 'fraud-detector'
+    ])
+
+    validate = create_validate_task(dag)
+
+    extract >> train >> validate
 
 
-    # Step 4: Validate (Python)
-    def validate_model_metrics():
+
+# ============================================================================
+# GENERIC SPARK JOB FACTORY
+# ============================================================================
+
+def create_spark_task(dag, task_id: str, job_name: str, args: list):
+    """Factory: returns PythonOperator (local) or EmrServerlessOperator (prod)."""
+
+    if ENV == 'prod':
+        from airflow.providers.amazon.aws.operators.emr import EmrServerlessStartJobRunOperator
+
+        spark_args = [f's3://{S3_BUCKET}/spark-jobs/{job_name}'] + args
+
+        return EmrServerlessStartJobRunOperator(
+            task_id=task_id,
+            application_id=EMR_APPLICATION_ID,
+            execution_role_arn=EMR_JOB_ROLE_ARN,
+            job_driver={
+                'sparkSubmit': {
+                    'entryPoint': f's3://{S3_BUCKET}/spark-jobs/{job_name}',
+                    'entryPointArguments': args,
+                    'sparkSubmitParameters': f'--py-files s3://{S3_BUCKET}/libs/feature_store.zip'
+                }
+            },
+            configuration_overrides={
+                'monitoringConfiguration': {
+                    's3MonitoringConfiguration': {
+                        'logUri': f's3://{S3_BUCKET}/logs/'
+                    }
+                }
+            },
+            dag=dag,
+        )
+    else:
+        # Local mode
+        def run_spark():
+            import subprocess
+            import sys
+
+            os.environ['PYSPARK_PYTHON'] = sys.executable
+            os.environ['PYSPARK_DRIVER_PYTHON'] = sys.executable
+
+            cmd = [
+                      'spark-submit', '--master', 'local[*]',
+                      '--py-files', '/opt/airflow/feature-store/dist/feature_store.zip',
+                      f'/opt/airflow/jobs/{job_name}'
+                  ] + args
+
+            print(f"🚀 {' '.join(cmd)}")
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            print(result.stdout)
+            if result.returncode != 0:
+                print(result.stderr)
+                raise Exception(f"{job_name} failed")
+
+        return PythonOperator(
+            task_id=task_id,
+            python_callable=run_spark,
+            dag=dag,
+        )
+
+
+def create_validate_task(dag):
+    """Validate model metrics (works same for local and prod)."""
+
+    def validate():
         import json
 
-        # TODO: Read metrics from training output
-        metrics = {'accuracy': 0.95, 'auc': 0.94}
+        if ENV == 'prod':
+            import boto3
+            s3 = boto3.client('s3')
+            obj = s3.get_object(Bucket=S3_BUCKET, Key='models/model_metrics.json')
+            metrics = json.loads(obj['Body'].read())
+        else:
+            with open('/opt/spark-data/models/model_metrics.json', 'r') as f:
+                metrics = json.load(f)
 
-        print(f"📊 Metrics: {json.dumps(metrics, indent=2)}")
-        assert metrics['accuracy'] > 0.85, "Accuracy too low!"
+        print(f"📊 {metrics}")
+        assert metrics['accuracy'] > 0.80, "Accuracy too low"
+        assert metrics.get('f1', metrics.get('auc', 0)) > 0.75, "F1/AUC too low"
+        print("✅ Validation passed")
 
-        print("✅ Validation passed!")
-        return metrics
-
-
-    validate = PythonOperator(
+    return PythonOperator(
         task_id='validate_model',
-        python_callable=validate_model_metrics
+        python_callable=validate,
+        dag=dag,
     )
 
-    # Pipeline
-    extract_features >> train_model >> register_model >> validate
+

@@ -145,6 +145,18 @@ resource "aws_iam_role_policy" "ecs_task" {
           "logs:PutLogEvents"
         ]
         Resource = "*"
+      },
+      {
+        Sid    = "S3ModelRead"
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:ListBucket"
+        ]
+        Resource = [
+          aws_s3_bucket.data.arn,
+          "${aws_s3_bucket.data.arn}/models/*"
+        ]
       }
     ]
   })
@@ -182,10 +194,13 @@ resource "aws_iam_role_policy" "ecs_task_execution_ssm" {
           "ssm:GetParameters",
           "ssm:GetParameter"
         ]
-        Resource = [
-          aws_ssm_parameter.db_password.arn,
-          aws_ssm_parameter.bastion_public_key.arn  # ✅ Add bastion key access
-        ]
+        Resource = concat(
+          [
+            aws_ssm_parameter.db_password.arn,
+            aws_ssm_parameter.bastion_public_key.arn
+          ],
+          var.redis_password != "" ? [aws_ssm_parameter.redis_password[0].arn] : []
+        )
       }
     ]
   })

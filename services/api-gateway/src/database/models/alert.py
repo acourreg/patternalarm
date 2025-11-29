@@ -64,4 +64,4 @@ class DBAlert(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     # Relationship
-    transactions = relationship("SuspiciousTransaction", back_populates="alert", lazy="selectin")
+    transactions = relationship("DBTransaction", back_populates="alert", lazy="selectin")

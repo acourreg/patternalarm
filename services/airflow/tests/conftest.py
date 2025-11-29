@@ -1,83 +1,91 @@
 # services/airflow/tests/conftest.py
 
-
 import pytest
+import os
+import sys
 import tempfile
 import shutil
-from pyspark.sql import SparkSession
-from datetime import datetime, timedelta
-import random
+
+# 🔧 Fix Python version mismatch
+os.environ['PYSPARK_PYTHON'] = sys.executable
+os.environ['PYSPARK_DRIVER_PYTHON'] = sys.executable
 
 
 @pytest.fixture(scope="session")
 def spark():
-    """Local Spark session for testing (no cluster needed)."""
+    """Create SparkSession for tests."""
+    from pyspark.sql import SparkSession
+
     spark = SparkSession.builder \
-        .master("local[2]") \
-        .appName("PatternAlarm-Tests") \
+        .appName("test") \
+        .master("local[*]") \
+        .config("spark.driver.memory", "1g") \
         .config("spark.sql.shuffle.partitions", "2") \
-        .config("spark.ui.enabled", "false") \
         .getOrCreate()
 
+    spark.sparkContext.setLogLevel("WARN")
     yield spark
     spark.stop()
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def temp_dir():
     """Temporary directory for test outputs."""
     path = tempfile.mkdtemp()
     yield path
-    shutil.rmtree(path)
+    shutil.rmtree(path, ignore_errors=True)
 
 
-@pytest.fixture
-def sample_transactions(spark, temp_dir):
-    """Create sample transaction data as parquet."""
-    base_time = datetime(2025, 1, 1, 12, 0, 0)
+@pytest.fixture(scope="session")
+def sample_features(spark, tmp_path_factory):
+    """Generate sample feature data."""
+    import random
 
-    data = []
-    for i in range(100):
-        actor_id = f"actor_{i % 10}"  # 10 unique actors
-        is_fraud = i % 10 == 0  # 10% fraud rate
+    tmp_path = tmp_path_factory.mktemp("data")
+    features_path = str(tmp_path / "features")
 
-        data.append({
-            "transaction_id": f"txn_{i}",
-            "actor_id": actor_id,
-            "amount": round(random.uniform(10, 1000), 2),
-            "timestamp": base_time + timedelta(minutes=i),
-            "country": random.choice(["US", "UK", "NG", "RU"]),
-            "fraud_label": "fraud" if is_fraud else "legitimate"
-        })
-
-    df = spark.createDataFrame(data)
-
-    output_path = f"{temp_dir}/transactions"
-    df.write.parquet(output_path)
-
-    return output_path
-
-
-@pytest.fixture
-def sample_features(spark, temp_dir):
-    """Create sample features data as parquet."""
     data = []
     for i in range(50):
-        is_fraud = i % 5 == 0
-
+        is_fraud = i < 10
         data.append({
-            "actor_id": f"actor_{i}",
-            "amount": round(random.uniform(100, 5000), 2),
-            "transaction_count": random.randint(1, 20),
-            "amount_per_transaction": round(random.uniform(50, 500), 2),
-            "time_delta_sec": random.randint(60, 3600),
-            "velocity_per_sec": round(random.uniform(0.1, 10), 4),
+            "actor_id": f"actor_{i % 10}",
+            "amount": random.uniform(1000, 10000) if is_fraud else random.uniform(10, 500),
+            "transaction_count": random.randint(1, 5),
+            "amount_per_transaction": random.uniform(100, 2000),
+            "time_delta_sec": random.uniform(1, 100),
+            "velocity_per_sec": random.uniform(0.1, 10),
             "fraud_label": "fraud" if is_fraud else "legitimate"
         })
 
     df = spark.createDataFrame(data)
+    df.write.parquet(features_path)
 
-    output_path = f"{temp_dir}/features"
-    df.write.parquet(output_path)
+    return features_path
 
-    return output_path
+
+@pytest.fixture(scope="session")
+def sample_transactions(spark, tmp_path_factory):
+    """Generate sample transaction data."""
+    from datetime import datetime, timedelta
+    import random
+
+    tmp_path = tmp_path_factory.mktemp("data")
+    transactions_path = str(tmp_path / "transactions")
+
+    data = []
+    base_time = datetime(2024, 1, 1, 12, 0, 0)
+
+    for i in range(100):
+        is_fraud = i < 20
+        data.append({
+            "transaction_id": f"tx_{i}",
+            "actor_id": f"actor_{i % 10}",
+            "amount": random.uniform(1000, 10000) if is_fraud else random.uniform(10, 500),
+            "timestamp": (base_time + timedelta(minutes=i)).isoformat(),
+            "fraud_label": "fraud" if is_fraud else "legitimate"
+        })
+
+    df = spark.createDataFrame(data)
+    df.write.parquet(transactions_path)
+
+    return transactions_path

@@ -45,3 +45,10 @@ variable "random_suffix" {
   type        = string
   default     = "a7x9"  # Change this each time
 }
+
+variable "redis_password" {
+  description = "Redis AUTH password (optional)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}

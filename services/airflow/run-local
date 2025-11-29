@@ -1,0 +1,46 @@
+#!/bin/bash
+# services/airflow/run-local.sh
+# Local development only
+
+set -e
+cd "$(dirname "$0")"
+
+echo "=============================================="
+echo "🌬️ Airflow Local Build & Run"
+echo "=============================================="
+
+# Build feature_store.zip
+echo "📦 Building feature_store.zip from GitHub..."
+rm -rf /tmp/patternalarm feature-store/dist
+mkdir -p feature-store/dist
+
+git clone --depth 1 https://github.com/acourreg/patternalarm.git /tmp/patternalarm
+cd /tmp/patternalarm/feature-store
+zip -r "$OLDPWD/feature-store/dist/feature_store.zip" feature_store
+cd "$OLDPWD"
+rm -rf /tmp/patternalarm
+
+echo "✅ feature_store.zip ready"
+
+# Build Docker image
+echo "🔨 Building Airflow image..."
+docker build -t patternalarm-airflow:latest .
+
+# Run container
+echo "🧹 Cleaning up old container..."
+docker stop airflow 2>/dev/null || true
+docker rm airflow 2>/dev/null || true
+
+echo "🚀 Starting Airflow..."
+docker run -d \
+  --name airflow \
+  -p 8080:8080 \
+  -v "$(pwd)/../../data:/opt/spark-data" \
+  patternalarm-airflow:latest
+
+echo "⏳ Waiting for Airflow (30s)..."
+sleep 30
+
+echo ""
+echo "✅ Airflow ready: http://localhost:8080"
+echo "📋 Login: admin / admin"
