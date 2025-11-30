@@ -24,45 +24,6 @@ default_args = {
 
 
 # ============================================================================
-# DAG DEFINITION
-# ============================================================================
-
-with DAG(
-        'fraud_model_training',
-        default_args=default_args,
-        schedule='0 2 * * *',
-        catchup=False,
-        tags=['ml', 'fraud']
-) as dag:
-    # Paths based on environment
-    if ENV == 'prod':
-        input_path = f's3://{S3_BUCKET}/data/processed/training_data.parquet'
-        features_path = f's3://{S3_BUCKET}/data/features'
-        model_output = f's3://{S3_BUCKET}/models/fraud_detector_v1'
-    else:
-        input_path = '/opt/spark-data/processed/training_data.parquet'
-        features_path = '/opt/spark-data/features'
-        model_output = '/opt/spark-data/models/fraud_detector_v1'
-
-    # Tasks
-    extract = create_spark_task(dag, 'extract_features', 'extract_features.py', [
-        '--input-path', input_path,
-        '--output-path', features_path
-    ])
-
-    train = create_spark_task(dag, 'train_model', 'train_model.py', [
-        '--features-path', features_path,
-        '--model-output', model_output,
-        '--model-name', 'fraud-detector'
-    ])
-
-    validate = create_validate_task(dag)
-
-    extract >> train >> validate
-
-
-
-# ============================================================================
 # GENERIC SPARK JOB FACTORY
 # ============================================================================
 
@@ -150,3 +111,39 @@ def create_validate_task(dag):
     )
 
 
+# ============================================================================
+# DAG DEFINITION
+# ============================================================================
+
+with DAG(
+        'fraud_model_training',
+        default_args=default_args,
+        schedule='0 2 * * *',
+        catchup=False,
+        tags=['ml', 'fraud']
+) as dag:
+    # Paths based on environment
+    if ENV == 'prod':
+        input_path = f's3://{S3_BUCKET}/data/processed/training_data.parquet'
+        features_path = f's3://{S3_BUCKET}/data/features'
+        model_output = f's3://{S3_BUCKET}/models/fraud_detector_v1'
+    else:
+        input_path = '/opt/spark-data/processed/training_data.parquet'
+        features_path = '/opt/spark-data/features'
+        model_output = '/opt/spark-data/models/fraud_detector_v1'
+
+    # Tasks
+    extract = create_spark_task(dag, 'extract_features', 'extract_features.py', [
+        '--input-path', input_path,
+        '--output-path', features_path
+    ])
+
+    train = create_spark_task(dag, 'train_model', 'train_model.py', [
+        '--features-path', features_path,
+        '--model-output', model_output,
+        '--model-name', 'fraud-detector'
+    ])
+
+    validate = create_validate_task(dag)
+
+    extract >> train >> validate
