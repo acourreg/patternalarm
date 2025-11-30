@@ -22,7 +22,6 @@ default_args = {
     'retry_delay': timedelta(minutes=5),
 }
 
-
 # ============================================================================
 # GENERIC SPARK JOB FACTORY
 # ============================================================================
@@ -31,11 +30,11 @@ def create_spark_task(dag, task_id: str, job_name: str, args: list):
     """Factory: returns PythonOperator (local) or EmrServerlessOperator (prod)."""
 
     if ENV == 'prod':
-        from airflow.providers.amazon.aws.operators.emr_serverless import EmrServerlessStartJobRunOperator
+        from airflow.providers.amazon.aws.operators.emr import EmrServerlessStartJobOperator
 
         spark_args = [f's3://{S3_BUCKET}/spark-jobs/{job_name}'] + args
 
-        return EmrServerlessStartJobRunOperator(
+        return EmrServerlessStartJobOperator(
             task_id=task_id,
             application_id=EMR_APPLICATION_ID,
             execution_role_arn=EMR_JOB_ROLE_ARN,
@@ -53,6 +52,7 @@ def create_spark_task(dag, task_id: str, job_name: str, args: list):
                     }
                 }
             },
+            wait_for_completion=True,
             dag=dag,
         )
     else:

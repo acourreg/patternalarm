@@ -1,23 +1,23 @@
-# services/airflow/requirements.txt
+    # services/airflow/requirements.txt
 
-# Airflow 2.8.0
-apache-airflow==2.8.0
-apache-airflow-providers-apache-spark
-apache-airflow-providers-amazon>=8.16.0
+    # Airflow 2.8.0
+    apache-airflow==2.8.0
+    apache-airflow-providers-apache-spark
+    apache-airflow-providers-amazon>=8.16.0
 
-# AWS SDK
-boto3  # ← AJOUTER (pour validate_task qui lit S3)
+    # AWS SDK
+    boto3  # ← AJOUTER (pour validate_task qui lit S3)
 
-# Spark & ML
-pyspark==3.5.0
-mlflow==2.14.0
+    # Spark & ML
+    pyspark==3.5.0
+    mlflow==2.14.0
 
-# Data
-pandas
-numpy
+    # Data
+    pandas
+    numpy
 
-# Feature store from Git
-git+https://github.com/acourreg/patternalarm.git@main#subdirectory=feature-store
+    # Feature store from Git
+    git+https://github.com/acourreg/patternalarm.git@main#subdirectory=feature-store
 
-# Testing
-pytest
+    # Testing
+    pytest
