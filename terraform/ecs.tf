@@ -253,7 +253,13 @@ resource "aws_iam_role_policy" "airflow_task" {
     Statement = [
       {
         Effect   = "Allow"
-        Action   = ["emr-serverless:StartJobRun", "emr-serverless:GetJobRun", "emr-serverless:CancelJobRun"]
+        Action   = [
+          "emr-serverless:StartJobRun",
+          "emr-serverless:GetJobRun",
+          "emr-serverless:CancelJobRun",
+          "emr-serverless:GetApplication",
+          "emr-serverless:ListJobRuns"
+        ]
         Resource = [aws_emrserverless_application.spark.arn, "${aws_emrserverless_application.spark.arn}/*"]
       },
       {
