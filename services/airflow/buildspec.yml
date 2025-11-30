@@ -22,7 +22,7 @@ phases:
       # 2. Build PySpark environment for EMR Serverless
       - echo Building PySpark environment...
       - python3 -m venv pyspark_env
-      - source pyspark_env/bin/activate
+      - . pyspark_env/bin/activate
       - pip install --upgrade pip
       - pip install pydantic pandas numpy
       - pip install venv-pack
