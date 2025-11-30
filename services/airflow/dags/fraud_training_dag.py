@@ -31,7 +31,7 @@ def create_spark_task(dag, task_id: str, job_name: str, args: list):
     """Factory: returns PythonOperator (local) or EmrServerlessOperator (prod)."""
 
     if ENV == 'prod':
-        from airflow.providers.amazon.aws.operators.emr import EmrServerlessStartJobRunOperator
+        from airflow.providers.amazon.aws.operators.emr_serverless import EmrServerlessStartJobRunOperator
 
         spark_args = [f's3://{S3_BUCKET}/spark-jobs/{job_name}'] + args
 
