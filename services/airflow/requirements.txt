@@ -3,7 +3,7 @@
 # Airflow 2.8.0
 apache-airflow==2.8.0
 apache-airflow-providers-apache-spark
-apache-airflow-providers-amazon>=8.0.0  # ← AJOUTER (pour EmrServerlessStartJobRunOperator)
+apache-airflow-providers-amazon>=8.16.0
 
 # AWS SDK
 boto3  # ← AJOUTER (pour validate_task qui lit S3)
