@@ -73,13 +73,49 @@ def evaluate(model, test_df):
     return {"accuracy": round(accuracy, 4), "f1": round(f1, 4)}
 
 
-def save_metrics(metrics, model_output):
-    """Save metrics JSON next to model."""
-    metrics_path = os.path.dirname(model_output) + "/model_metrics.json"
-    os.makedirs(os.path.dirname(metrics_path), exist_ok=True)
-    with open(metrics_path, 'w') as f:
-        json.dump(metrics, f, indent=2)
-    print(f"📄 Metrics saved: {metrics_path}")
+def save_metrics(spark, metrics, model_output):
+    """Save metrics JSON next to model (local or S3)."""
+    import json
+
+    metrics_path = model_output.rstrip('/') + "/model_metrics.json"
+
+    if metrics_path.startswith('s3://'):
+        # S3: use Spark to write
+        metrics_json = json.dumps(metrics, indent=2)
+        rdd = spark.sparkContext.parallelize([metrics_json])
+        # Write as text file (single partition)
+        rdd.coalesce(1).saveAsTextFile(metrics_path + "_tmp")
+
+        # Rename part file to metrics.json
+        import boto3
+        s3 = boto3.client('s3')
+        bucket = metrics_path.split('/')[2]
+        prefix = '/'.join(metrics_path.split('/')[3:])
+        tmp_prefix = prefix + "_tmp/"
+
+        # Find the part file
+        response = s3.list_objects_v2(Bucket=bucket, Prefix=tmp_prefix)
+        for obj in response.get('Contents', []):
+            if 'part-' in obj['Key']:
+                s3.copy_object(
+                    Bucket=bucket,
+                    CopySource={'Bucket': bucket, 'Key': obj['Key']},
+                    Key=prefix
+                )
+                break
+
+        # Cleanup tmp
+        for obj in response.get('Contents', []):
+            s3.delete_object(Bucket=bucket, Key=obj['Key'])
+
+        print(f"📄 Metrics saved: {metrics_path}")
+    else:
+        # Local filesystem
+        import os
+        os.makedirs(os.path.dirname(metrics_path), exist_ok=True)
+        with open(metrics_path, 'w') as f:
+            json.dump(metrics, f, indent=2)
+        print(f"📄 Metrics saved: {metrics_path}")
 
 
 def main(features_path: str, model_output: str, model_name: str = "fraud-detector"):
