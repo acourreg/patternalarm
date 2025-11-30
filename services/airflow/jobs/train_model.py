@@ -152,7 +152,7 @@ def main(features_path: str, model_output: str, model_name: str = "fraud-detecto
     # Save model
     print(f"\n💾 Saving: {model_output}")
     model.write().overwrite().save(model_output)
-    save_metrics(metrics, model_output)
+    save_metrics(spark, metrics, model_output)
 
     print(f"✅ Model registered as: {model_name}")
     spark.stop()
