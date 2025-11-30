@@ -61,8 +61,8 @@ locals {
       is_airflow    = false
     }
     airflow = {
-      cpu           = 1024
-      memory        = 2048
+      cpu           = 2048   # 2 vCPU
+      memory        = 4096   # 4 GB
       port          = 8080
       desired_count = 1
       is_bastion    = false

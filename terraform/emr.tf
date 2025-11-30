@@ -186,7 +186,7 @@ output "emr_spark_submit_example" {
             "--features-path", "s3://${aws_s3_bucket.data.id}/data/features",
             "--model-output", "s3://${aws_s3_bucket.data.id}/models/fraud_detector_v1"
           ],
-          "sparkSubmitParameters": "--py-files s3://${aws_s3_bucket.data.id}/libs/feature_store.zip"
+          'sparkSubmitParameters': f'--py-files s3://{S3_BUCKET}/libs/feature_store.zip,s3://{S3_BUCKET}/libs/pyspark_libs.zip'
         }
       }' \
       --configuration-overrides '{
