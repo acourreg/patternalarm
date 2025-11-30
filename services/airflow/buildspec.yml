@@ -19,9 +19,12 @@ phases:
       - zip -r feature_store.zip feature_store
       - cd ..
 
-      # 2. Build PySpark environment for EMR Serverless (single command)
-      - echo Building PySpark environment...
-      - python3 -m venv pyspark_env && pyspark_env/bin/pip install --upgrade pip && pyspark_env/bin/pip install pydantic pandas numpy venv-pack && pyspark_env/bin/venv-pack -o pyspark_env.tar.gz
+      # 2. Build PySpark dependencies zip
+      - echo Building PySpark dependencies...
+      - mkdir -p pyspark_libs
+      - pip install pydantic pandas numpy -t pyspark_libs --no-deps
+      - pip install annotated-types pydantic-core typing-extensions -t pyspark_libs --no-deps
+      - cd pyspark_libs && zip -r ../pyspark_libs.zip . && cd ..
 
       # 3. Build Docker image
       - echo Building the Docker image...
@@ -34,25 +37,18 @@ phases:
   post_build:
     commands:
       - echo Build completed on `date`
-
-      # 4. Push Docker image
       - echo Pushing the Docker images...
       - docker push $REPOSITORY_URI:$IMAGE_TAG
       - docker push $REPOSITORY_URI:$COMMIT_HASH
       - echo Image pushed to $REPOSITORY_URI:$IMAGE_TAG
-
-      # 5. Upload artifacts to S3
       - echo Uploading Spark jobs to S3...
       - aws s3 cp jobs/extract_features.py s3://$S3_BUCKET/spark-jobs/
       - aws s3 cp jobs/train_model.py s3://$S3_BUCKET/spark-jobs/
-      - echo Uploading feature_store.zip to S3...
+      - echo Uploading libs to S3...
       - aws s3 cp feature-store/dist/feature_store.zip s3://$S3_BUCKET/libs/
-      - echo Uploading PySpark environment to S3...
       - cd ../..
-      - aws s3 cp pyspark_env.tar.gz s3://$S3_BUCKET/libs/
+      - aws s3 cp pyspark_libs.zip s3://$S3_BUCKET/libs/
       - echo S3 artifacts uploaded
-
-      # 6. Deploy to ECS
       - echo Deploying to ECS...
       - aws ecs update-service --cluster $PROJECT_NAME-cluster --service $PROJECT_NAME-airflow --force-new-deployment --region $AWS_DEFAULT_REGION
       - echo Deployment triggered successfully
