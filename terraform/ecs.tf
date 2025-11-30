@@ -258,7 +258,18 @@ resource "aws_iam_role_policy" "airflow_task" {
           "emr-serverless:GetJobRun",
           "emr-serverless:CancelJobRun",
           "emr-serverless:GetApplication",
-          "emr-serverless:ListJobRuns"
+          "emr-serverless:ListJobRuns",
+          "emr-serverless:CreateApplication",
+          "emr-serverless:GetApplication",
+          "emr-serverless:ListApplications",
+          "emr-serverless:StartApplication",
+          "emr-serverless:StopApplication",
+          "emr-serverless:DeleteApplication",
+          "emr-serverless:StartJobRun",
+          "emr-serverless:GetJobRun",
+          "emr-serverless:ListJobRuns",
+          "emr-serverless:CancelJobRun",
+          "emr-serverless:TagResource"
         ]
         Resource = [aws_emrserverless_application.spark.arn, "${aws_emrserverless_application.spark.arn}/*"]
       },
