@@ -3,13 +3,13 @@ Shared entities between training and serving
 Maps to Kafka TransactionEvent schema
 """
 
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional, List
 
-from pydantic import BaseModel
 
-
-class Transaction(BaseModel):
+@dataclass
+class Transaction:
     """
     Single transaction entity
     Maps to TransactionEvent from Kafka
@@ -25,14 +25,15 @@ class Transaction(BaseModel):
     country_to: Optional[str] = None
 
 
-class ActorTransactions(BaseModel):
+@dataclass
+class ActorTransactions:
     """
     Grouped transactions for a single actor
     This is the unit of prediction
     """
     actor_id: str
     domain: str
-    transactions: List[Transaction]
+    transactions: List[Transaction] = field(default_factory=list)
 
     # Computed fields (set during feature engineering)
     fraud_first_seen: Optional[datetime] = None

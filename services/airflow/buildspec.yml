@@ -19,14 +19,7 @@ phases:
       - zip -r feature_store.zip feature_store
       - cd ..
 
-      # 2. Build PySpark dependencies zip
-      - echo Building PySpark dependencies...
-      - mkdir -p pyspark_libs
-      - pip install pydantic pandas numpy -t pyspark_libs --no-deps
-      - pip install annotated-types pydantic-core typing-extensions -t pyspark_libs --no-deps
-      - cd pyspark_libs && zip -r ../pyspark_libs.zip . && cd ..
-
-      # 3. Build Docker image
+      # 2. Build Docker image
       - echo Building the Docker image...
       - cd services/airflow
       - mkdir -p feature-store/dist
@@ -44,10 +37,8 @@ phases:
       - echo Uploading Spark jobs to S3...
       - aws s3 cp jobs/extract_features.py s3://$S3_BUCKET/spark-jobs/
       - aws s3 cp jobs/train_model.py s3://$S3_BUCKET/spark-jobs/
-      - echo Uploading libs to S3...
+      - echo Uploading feature_store.zip to S3...
       - aws s3 cp feature-store/dist/feature_store.zip s3://$S3_BUCKET/libs/
-      - cd ../..
-      - aws s3 cp pyspark_libs.zip s3://$S3_BUCKET/libs/
       - echo S3 artifacts uploaded
       - echo Deploying to ECS...
       - aws ecs update-service --cluster $PROJECT_NAME-cluster --service $PROJECT_NAME-airflow --force-new-deployment --region $AWS_DEFAULT_REGION

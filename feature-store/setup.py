@@ -17,12 +17,11 @@ setup(
     packages=find_packages(),
 
     install_requires=[
-        "pydantic>=2.0.0",
         "pandas>=2.0.0",
     ],
 
     extras_require={
-        "spark": ["pyspark>=3.3.0,<4.0.0"],  # ✅ Compatible with Spark 3.3
+        "spark": ["pyspark>=3.3.0,<4.0.0"],
         "dev": ["pytest", "black", "mypy"]
     },
 

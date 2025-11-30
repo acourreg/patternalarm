@@ -42,7 +42,7 @@ def create_spark_task(dag, task_id: str, job_name: str, args: list):
                 'sparkSubmit': {
                     'entryPoint': f's3://{S3_BUCKET}/spark-jobs/{job_name}',
                     'entryPointArguments': args,
-                    'sparkSubmitParameters': f'--py-files s3://{S3_BUCKET}/libs/feature_store.zip,s3://{S3_BUCKET}/libs/pyspark_libs.zip'
+                    'sparkSubmitParameters': f'--py-files s3://{S3_BUCKET}/libs/feature_store.zip'
                 }
             },
             configuration_overrides={
