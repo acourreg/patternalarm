@@ -14,7 +14,8 @@ __pycache__/
 *.ipynb_checkpoints
 
 # Data
-data/
+data/models/
+data/features/
 
 # Virtual environments
 venv/
