@@ -9,6 +9,7 @@ WORKDIR /app
 # Install system dependencies (for healthcheck)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install
