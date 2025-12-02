@@ -24,10 +24,10 @@ if MODEL_TYPE == "mlflow":
     model = MLflowFraudModel(model_uri=model_uri)
     logger.info("✅ Using MLflow model")
 else:
-    model_path = Path(os.getenv("SPARK_MODEL_PATH", "../../data/models/fraud_detector_v1"))
-    if model_path.exists():
-        model = SparkFraudModel(model_path=str(model_path))
-        logger.info(f"✅ Using Spark ML model")
+    model_path = os.getenv("MODEL_PATH", os.getenv("SPARK_MODEL_PATH", "../../data/models/fraud_detector_v1"))
+    if model_path.startswith("s3://") or Path(model_path).exists():
+        model = SparkFraudModel(model_path=model_path)
+        logger.info(f"✅ Using Spark ML model from {model_path}")
     else:
         raise FileNotFoundError(f"Model not found at {model_path}")
 
