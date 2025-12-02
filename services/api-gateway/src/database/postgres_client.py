@@ -10,7 +10,7 @@ from sqlalchemy.orm import declarative_base
 # Priority: DB_URL (full URL) > DB_PASSWORD (construct URL)
 DB_URL = os.getenv("DB_URL")
 
-if not DB_URL:
+if not DB_URL or DB_URL.startswith("jdbc:"):
     # Production mode: construct from separate env vars
     db_user = os.getenv("DB_USER", "dbadmin")
     db_password = os.getenv("DB_PASSWORD", "password")
