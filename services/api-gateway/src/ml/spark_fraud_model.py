@@ -44,8 +44,16 @@ class SparkFraudModel(BaseFraudModel):
         self._spark = SparkSession.builder \
             .appName("FraudAPI") \
             .config("spark.driver.memory", "2g") \
+            .config("spark.jars.packages",
+                    "org.apache.hadoop:hadoop-aws:3.3.4,com.amazonaws:aws-java-sdk-bundle:1.12.262") \
+            .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem") \
+            .config("spark.hadoop.fs.s3a.aws.credentials.provider",
+                    "com.amazonaws.auth.DefaultAWSCredentialsProviderChain") \
             .getOrCreate()
 
+        if model_path and model_path.startswith("s3://"):
+            model_path = model_path.replace("s3://", "s3a://")
+            
         if mlflow_uri:
             self._model = mlflow.spark.load_model(mlflow_uri)
         elif model_path:
