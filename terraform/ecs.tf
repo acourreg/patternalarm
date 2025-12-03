@@ -29,12 +29,13 @@ resource "aws_cloudwatch_log_group" "ecs" {
 locals {
   ecs_services = {
     api-gateway = {
-      cpu           = 256
-      memory        = 1024
+      cpu           = 2048
+      memory        = 4096
       port          = 8080
       desired_count = 1
       is_bastion    = false
       is_airflow    = false
+      start_period  = 120
     }
     flink-processor = {
       cpu           = 512
@@ -43,6 +44,7 @@ locals {
       desired_count = 1
       is_bastion    = false
       is_airflow    = false
+      start_period  = 60
     }
     dashboard = {
       cpu           = 256
@@ -51,6 +53,7 @@ locals {
       desired_count = 1
       is_bastion    = false
       is_airflow    = false
+      start_period  = 60
     }
     bastion = {
       cpu           = 256
@@ -59,6 +62,7 @@ locals {
       desired_count = 1
       is_bastion    = true
       is_airflow    = false
+      start_period  = 60
     }
     airflow = {
       cpu           = 2048   # 2 vCPU
@@ -67,6 +71,7 @@ locals {
       desired_count = 1
       is_bastion    = false
       is_airflow    = true
+      start_period  = 60
     }
   }
 }
@@ -217,7 +222,7 @@ resource "aws_ecs_task_definition" "services" {
       interval    = 30
       timeout     = 5
       retries     = 3
-      startPeriod = 60
+      startPeriod = each.value.start_period
     }
   }])
 
