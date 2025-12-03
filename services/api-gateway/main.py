@@ -6,7 +6,7 @@ FastAPI API Gateway
 - Query layer for Dashboard (GET /alerts, /analytics) - REAL DATABASE
 """
 import os
-os.environ['JAVA_HOME'] = '/opt/homebrew/opt/openjdk@17'
+os.environ['JAVA_HOME'] = os.getenv('JAVA_HOME', '/usr/lib/jvm/java-21-openjdk-amd64')
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
