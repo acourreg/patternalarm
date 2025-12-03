@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict
 from src.api.models.alert import Alert
 from src.api.models.transactionevent import TransactionEvent
 
-# ✅ Import feature store entities
+# ✅ Import feature store entities (dataclasses)
 from feature_store.entities import Transaction, ActorTransactions
 
 
@@ -43,6 +43,19 @@ class BaseFraudModel(ABC):
 # Request/Response Models (API Layer)
 # ============================================================================
 
+class TransactionInput(BaseModel):
+    """Pydantic model for API input validation"""
+    transaction_id: str
+    amount: float
+    currency: str
+    timestamp: str
+    payment_method: str
+    domain: str
+    session_length_sec: int = 0
+    country_from: Optional[str] = None
+    country_to: Optional[str] = None
+
+
 class PredictRequest(BaseModel):
     """
     API request for fraud prediction
@@ -50,15 +63,28 @@ class PredictRequest(BaseModel):
     """
     actor_id: str
     domain: str
-    transactions: List[Transaction]  # ✅ From feature_store
+    transactions: List[TransactionInput]  # ✅ Pydantic for validation
     request_id: Optional[str] = None
 
     def to_actor_transactions(self) -> ActorTransactions:
-        """Convert to feature store entity"""
+        """Convert Pydantic → feature store dataclass"""
         return ActorTransactions(
             actor_id=self.actor_id,
             domain=self.domain,
-            transactions=self.transactions
+            transactions=[
+                Transaction(
+                    transaction_id=t.transaction_id,
+                    amount=t.amount,
+                    currency=t.currency,
+                    timestamp=t.timestamp,
+                    payment_method=t.payment_method,
+                    domain=t.domain,
+                    session_length_sec=t.session_length_sec,
+                    country_from=t.country_from,
+                    country_to=t.country_to
+                )
+                for t in self.transactions
+            ]
         )
 
 

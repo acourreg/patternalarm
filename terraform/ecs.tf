@@ -30,7 +30,7 @@ locals {
   ecs_services = {
     api-gateway = {
       cpu           = 256
-      memory        = 512
+      memory        = 1024
       port          = 8080
       desired_count = 1
       is_bastion    = false
