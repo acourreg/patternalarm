@@ -41,19 +41,38 @@ class SparkFraudModel(BaseFraudModel):
 
         start = time.time()
 
+        # Download from S3 if needed
+        if model_path and model_path.startswith("s3://"):
+            import boto3
+            import os
+
+            local_path = "/tmp/fraud_model"
+            s3 = boto3.client('s3')
+
+            # Parse s3://bucket/prefix
+            path_parts = model_path.replace("s3://", "").split("/", 1)
+            bucket = path_parts[0]
+            prefix = path_parts[1] if len(path_parts) > 1 else ""
+
+            # Download all model files
+            os.makedirs(local_path, exist_ok=True)
+            paginator = s3.get_paginator('list_objects_v2')
+            for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
+                for obj in page.get('Contents', []):
+                    key = obj['Key']
+                    relative_path = key[len(prefix):].lstrip("/")
+                    local_file = os.path.join(local_path, relative_path)
+                    os.makedirs(os.path.dirname(local_file), exist_ok=True)
+                    s3.download_file(bucket, key, local_file)
+
+            model_path = local_path
+            print(f"✅ Downloaded model from S3 to {local_path}")
+
         self._spark = SparkSession.builder \
             .appName("FraudAPI") \
-            .config("spark.driver.memory", "2g") \
-            .config("spark.jars.packages",
-                    "org.apache.hadoop:hadoop-aws:3.3.4,com.amazonaws:aws-java-sdk-bundle:1.12.262") \
-            .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem") \
-            .config("spark.hadoop.fs.s3a.aws.credentials.provider",
-                    "com.amazonaws.auth.DefaultAWSCredentialsProviderChain") \
+            .config("spark.driver.memory", "1g") \
             .getOrCreate()
 
-        if model_path and model_path.startswith("s3://"):
-            model_path = model_path.replace("s3://", "s3a://")
-            
         if mlflow_uri:
             self._model = mlflow.spark.load_model(mlflow_uri)
         elif model_path:
