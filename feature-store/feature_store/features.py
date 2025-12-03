@@ -8,6 +8,7 @@ Used by both:
 
 from datetime import datetime
 from typing import Dict, List
+from dataclasses import asdict
 
 from .constants import (
     HIGH_RISK_COUNTRIES,
@@ -38,7 +39,7 @@ class FeatureEngineering:
         Returns:
             Dict of computed features
         """
-        txns = [t.model_dump() for t in actor.transactions]
+        txns = [asdict(t) for t in actor.transactions]
 
         # Aggregate metrics
         amounts = [t['amount'] for t in txns]
