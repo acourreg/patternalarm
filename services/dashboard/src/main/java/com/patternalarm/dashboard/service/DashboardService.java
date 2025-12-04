@@ -19,8 +19,13 @@ public class DashboardService {
 
     private static final Logger log = LoggerFactory.getLogger(DashboardService.class);
 
-    @Value("${patternalarm.mock:true}")
-    private boolean mockMode;
+    @Value("${ENVIRONMENT:local}")
+    private String environment;
+
+    private boolean isMockMode() {
+        // Real mode if ENVIRONMENT is "dev" or "prod"
+        return !("dev".equalsIgnoreCase(environment) || "prod".equalsIgnoreCase(environment));
+    }
 
     @Value("${patternalarm.api-gateway.url:http://api-gateway.patternalarm.local:8080}")
     private String apiGatewayUrl;
@@ -35,7 +40,7 @@ public class DashboardService {
     // ========== ALERTS ==========
 
     public List<java.util.Map<String, Object>> getRecentAlerts(int limit) {
-        if (mockMode) return mockAlerts(limit);
+        if (isMockMode()) return mockAlerts(limit);
 
         try {
             String json = restTemplate.getForObject(apiGatewayUrl + "/alerts?limit=" + limit, String.class);
@@ -50,7 +55,7 @@ public class DashboardService {
     // ========== VELOCITY ANALYTICS ==========
 
     public java.util.Map<String, Object> getVelocityAnalytics() {
-        if (mockMode) return mockVelocity();
+        if (isMockMode()) return mockVelocity();
 
         try {
             String json = restTemplate.getForObject(apiGatewayUrl + "/analytics/velocity", String.class);
@@ -66,7 +71,7 @@ public class DashboardService {
     public java.util.Map<String, Object> executeTest(String domain, String loadLevel) {
         String testId = "test-" + UUID.randomUUID().toString().substring(0, 8);
 
-        if (mockMode) {
+        if (isMockMode()) {
             log.info("MOCK: Test {} started for {} @ {}", testId, domain, loadLevel);
             java.util.Map<String, Object> result = new HashMap<>();
             result.put("success", true);
@@ -111,7 +116,7 @@ public class DashboardService {
     public java.util.Map<String, Object> getSystemStatus() {
         java.util.Map<String, Object> status = new HashMap<>();
 
-        if (mockMode) {
+        if (isMockMode()) {
             java.util.Map<String, String> mockStatus = new HashMap<>();
             mockStatus.put("status", "mock");
             mockStatus.put("message", "Mock mode enabled");
