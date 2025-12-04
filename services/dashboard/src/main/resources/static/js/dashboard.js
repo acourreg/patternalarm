@@ -1,120 +1,101 @@
-// PatternAlarm Dashboard - Frontend Logic
-let currentTestId = null;
-let pollInterval = null;
+// PatternAlarm Dashboard - Auto-refresh every 5s
 
-// AC1.3: Show crisis warning
-document.getElementById('loadLevel').addEventListener('change', function() {
-    const warning = document.getElementById('crisisWarning');
-    if (this.value === 'crisis') {
-        document.getElementById('crisisCost').textContent = '$3.80';
-        warning.style.display = 'block';
-    } else {
-        warning.style.display = 'none';
-    }
+let chart = null;
+
+// Init
+document.addEventListener('DOMContentLoaded', () => {
+    initChart();
+    refresh();
+    setInterval(refresh, 5000);
 });
 
-// AC1.2: Execute test
-document.getElementById('testForm').addEventListener('submit', async function(e) {
-    e.preventDefault();
+// Refresh alerts + chart
+async function refresh() {
+    try {
+        const [alerts, velocity] = await Promise.all([
+            fetch('/api/alerts?limit=10').then(r => r.json()),
+            fetch('/api/analytics/velocity').then(r => r.json())
+        ]);
+        updateFeed(alerts);
+        updateChart(velocity);
+        document.getElementById('updateTime').textContent = new Date().toLocaleTimeString();
+    } catch (e) {
+        console.error('Refresh failed:', e);
+    }
+}
 
-    const domain = document.querySelector('input[name="domain"]:checked');
-    if (!domain) {
-        alert('Please select a domain');
+// Fraud feed table
+function updateFeed(alerts) {
+    const tbody = document.getElementById('feedBody');
+    if (!alerts.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No alerts</td></tr>';
         return;
     }
+    tbody.innerHTML = alerts.map(a => `
+        <tr>
+            <td><span class="badge bg-primary">${a.domain}</span></td>
+            <td><code>${a.actorId}</code></td>
+            <td>${a.alertType}</td>
+            <td>$${a.totalAmount.toFixed(0)}</td>
+            <td><span class="badge bg-${severityColor(a.severity)}">${a.severity}</span></td>
+            <td>${a.fraudScore}</td>
+        </tr>
+    `).join('');
+    document.getElementById('alertCount').textContent = alerts.length;
+}
 
-    const loadLevel = document.getElementById('loadLevel').value;
-    const executeBtn = document.getElementById('executeBtn');
+// Chart update
+function updateChart(data) {
+    if (!data.data_points?.length) return;
+    const pts = data.data_points.slice(-15);
+    chart.data.labels = pts.map(p => new Date(p.bucket).toLocaleTimeString());
+    chart.data.datasets[0].data = pts.map(p => p.y1_velocity);
+    chart.data.datasets[1].data = pts.map(p => p.y2_avg_amount);
+    chart.update('none');
+}
 
-    // Disable button during execution
-    executeBtn.disabled = true;
-    executeBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Starting...';
-
-    try {
-        const response = await fetch('/api/test/execute', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: `domain=${domain.value}&loadLevel=${loadLevel}`
-        });
-
-        const result = await response.json();
-
-        if (result.success) {
-            currentTestId = result.testId;
-            document.getElementById('progressCard').style.display = 'block';
-            startPolling();
-        } else {
-            alert('Failed to start test');
-            executeBtn.disabled = false;
-            executeBtn.innerHTML = '<i class="bi bi-play-fill"></i> Run Test';
+// Chart init
+function initChart() {
+    chart = new Chart(document.getElementById('chart'), {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [
+                { label: 'Velocity', data: [], borderColor: '#dc3545', yAxisID: 'y' },
+                { label: 'Avg Amount', data: [], borderColor: '#0d6efd', yAxisID: 'y1' }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: { position: 'left', beginAtZero: true },
+                y1: { position: 'right', beginAtZero: true, grid: { drawOnChartArea: false } }
+            }
         }
-    } catch (error) {
-        console.error('Error:', error);
-        alert('Error starting test');
-        executeBtn.disabled = false;
-        executeBtn.innerHTML = '<i class="bi bi-play-fill"></i> Run Test';
-    }
+    });
+}
+
+// Test execution
+document.getElementById('testForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const domain = document.querySelector('input[name="domain"]:checked')?.value;
+    if (!domain) return alert('Select a domain');
+
+    const btn = document.getElementById('runBtn');
+    btn.disabled = true;
+    btn.textContent = 'Running...';
+
+    const res = await fetch('/api/test/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `domain=${domain}&loadLevel=${document.getElementById('loadLevel').value}`
+    }).then(r => r.json());
+
+    btn.textContent = res.success ? '✓ Started' : '✗ Failed';
+    setTimeout(() => { btn.disabled = false; btn.textContent = 'Run Test'; }, 3000);
 });
 
-// AC1.4: Poll for progress every 3 seconds
-function startPolling() {
-    pollInterval = setInterval(updateProgress, 3000);
-    updateProgress(); // Initial update
-}
-
-async function updateProgress() {
-    if (!currentTestId) return;
-
-    try {
-        const response = await fetch(`/api/test/${currentTestId}/progress`);
-        const progress = await response.json();
-
-        if (progress.error) {
-            stopPolling();
-            return;
-        }
-
-        // Update metrics
-        document.getElementById('eventsProcessed').textContent =
-            progress.eventsProcessed.toLocaleString();
-        document.getElementById('fraudDetected').textContent =
-            progress.fraudDetected.toLocaleString();
-        document.getElementById('throughput').textContent =
-            Math.round(progress.currentThroughput);
-
-        // Update progress bar
-        const totalEvents = getTotalEvents();
-        const percentage = Math.min(100, (progress.eventsProcessed / totalEvents) * 100);
-        const progressBar = document.getElementById('progressBar');
-        progressBar.style.width = percentage + '%';
-        progressBar.textContent = Math.round(percentage) + '%';
-
-        // Check if completed
-        if (progress.status === 'completed') {
-            document.getElementById('testStatus').innerHTML =
-                '<span class="badge bg-success">Completed</span>';
-            stopPolling();
-
-            // Reload page after 2 seconds to show in history
-            setTimeout(() => location.reload(), 2000);
-        }
-
-    } catch (error) {
-        console.error('Error fetching progress:', error);
-    }
-}
-
-function stopPolling() {
-    if (pollInterval) {
-        clearInterval(pollInterval);
-        pollInterval = null;
-    }
-    document.getElementById('executeBtn').disabled = false;
-    document.getElementById('executeBtn').innerHTML = '<i class="bi bi-play-fill"></i> Run Test';
-}
-
-function getTotalEvents() {
-    const loadLevel = document.getElementById('loadLevel').value;
-    return loadLevel === 'crisis' ? 100000 :
-           loadLevel === 'peak' ? 50000 : 10000;
+function severityColor(s) {
+    return { critical: 'danger', high: 'warning', medium: 'info', low: 'success' }[s] || 'secondary';
 }

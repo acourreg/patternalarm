@@ -35,6 +35,7 @@ dependencies {
     // Spring Boot Starters - MINIMAL for first run
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-thymeleaf")
+    implementation("software.amazon.awssdk:lambda:2.21.0")
 
     // Add these back incrementally:
     // implementation("org.springframework.boot:spring-boot-starter-thymeleaf")

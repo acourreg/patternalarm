@@ -7,67 +7,45 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
+import java.util.HashMap;
+import java.util.List;
 
 @Controller
 @RequiredArgsConstructor
 public class DashboardController {
 
-    private final DashboardService dashboardService;
+    private final DashboardService service;
 
-    /**
-     * Health check endpoint for ALB
-     */
     @GetMapping("/health")
     @ResponseBody
-    public ResponseEntity<Map<String, String>> health() {
-        return ResponseEntity.ok(Map.of(
-                "status", "UP",
-                "service", "dashboard"
-        ));
+    public ResponseEntity<java.util.Map<String, String>> health() {
+        java.util.Map<String, String> status = new HashMap<>();
+        status.put("status", "UP");
+        return ResponseEntity.ok(status);
     }
 
-    /**
-     * AC1.1: Main Dashboard Page
-     * Display 3 test scenario buttons, system status, last 10 test runs
-     */
     @GetMapping("/")
     public String dashboard(Model model) {
-        model.addAttribute("systemStatus", dashboardService.getSystemStatus());
-        model.addAttribute("recentRuns", dashboardService.getRecentTestRuns());
-        model.addAttribute("loadLevels", dashboardService.getLoadLevels());
+        model.addAttribute("systemStatus", service.getSystemStatus());
+        model.addAttribute("loadLevels", service.getLoadLevels());
         return "dashboard";
     }
 
-    /**
-     * AC1.2: Test Execution Control
-     * Trigger test execution (mocked for now)
-     */
     @PostMapping("/api/test/execute")
     @ResponseBody
-    public Map<String, Object> executeTest(
-            @RequestParam String domain,
-            @RequestParam String loadLevel) {
-        return dashboardService.executeTest(domain, loadLevel);
+    public java.util.Map<String, Object> executeTest(@RequestParam String domain, @RequestParam String loadLevel) {
+        return service.executeTest(domain, loadLevel);
     }
 
-    /**
-     * AC1.4: Real-Time Progress Monitoring
-     * Poll every 3 seconds for test progress
-     */
-    @GetMapping("/api/test/{testId}/progress")
+    @GetMapping("/api/alerts")
     @ResponseBody
-    public Map<String, Object> getProgress(@PathVariable String testId) {
-        return dashboardService.getTestProgress(testId);
+    public List<java.util.Map<String, Object>> getAlerts(@RequestParam(defaultValue = "10") int limit) {
+        return service.getRecentAlerts(limit);
     }
 
-    /**
-     * AC1.5: Results Dashboard
-     * Display test results after completion
-     */
-    @GetMapping("/results/{testId}")
-    public String showResults(@PathVariable String testId, Model model) {
-        model.addAttribute("results", dashboardService.getTestResults(testId));
-        return "results";
+    @GetMapping("/api/analytics/velocity")
+    @ResponseBody
+    public java.util.Map<String, Object> getVelocity() {
+        return service.getVelocityAnalytics();
     }
 }

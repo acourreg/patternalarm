@@ -2,182 +2,91 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PatternAlarm - Real-time Fraud Detection</title>
+    <title>PatternAlarm</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .chart-box { height: 280px; }
+        .feed-box { max-height: 350px; overflow-y: auto; }
+    </style>
 </head>
 <body class="bg-light">
 <nav class="navbar navbar-dark bg-dark">
     <div class="container-fluid">
-        <span class="navbar-brand mb-0 h1">🚨 PatternAlarm</span>
-        <span class="text-white-50">Real-time fraud detection at 50K events/minute</span>
+        <span class="navbar-brand">🚨 PatternAlarm</span>
+        <span class="text-white-50">Live: <span id="updateTime">-</span></span>
     </div>
 </nav>
 
-<div class="container mt-4">
+<div class="container-fluid mt-3">
+    <div class="row">
+        <!-- Left: Controls -->
+        <div class="col-lg-3">
+            <!-- Status -->
+            <div class="card mb-3">
+                <div class="card-header bg-primary text-white">System Status</div>
+                <div class="card-body p-2">
+                    <div th:each="s : ${systemStatus}" class="d-flex align-items-center mb-1">
+                        <span class="badge bg-success me-2">●</span>
+                        <small th:text="${s.key}">service</small>
+                    </div>
+                </div>
+            </div>
 
-    <!-- AC1.1: System Status -->
-    <div class="card mb-4">
-        <div class="card-header bg-primary text-white">
-            <h5 class="mb-0"><i class="bi bi-speedometer2"></i> System Status</h5>
-        </div>
-        <div class="card-body">
-            <div class="row">
-                <div class="col-md-4" th:each="service : ${systemStatus}">
-                    <div class="d-flex align-items-center mb-3">
-                        <i class="bi bi-check-circle-fill text-success fs-3 me-3"></i>
-                        <div>
-                            <h6 class="mb-0" th:text="${service.key}">Kafka</h6>
-                            <small class="text-muted" th:text="${service.value.message}">Connected</small>
+            <!-- Test Form -->
+            <div class="card">
+                <div class="card-header bg-success text-white">Run Test</div>
+                <div class="card-body">
+                    <form id="testForm">
+                        <div class="btn-group w-100 mb-2">
+                            <input type="radio" class="btn-check" name="domain" id="gaming" value="gaming">
+                            <label class="btn btn-outline-primary btn-sm" for="gaming">Gaming</label>
+                            <input type="radio" class="btn-check" name="domain" id="fintech" value="fintech">
+                            <label class="btn btn-outline-primary btn-sm" for="fintech">FinTech</label>
+                            <input type="radio" class="btn-check" name="domain" id="ecommerce" value="ecommerce">
+                            <label class="btn btn-outline-primary btn-sm" for="ecommerce">E-com</label>
                         </div>
-                    </div>
+                        <select class="form-select form-select-sm mb-2" id="loadLevel">
+                            <option th:each="l : ${loadLevels}" th:value="${l.value}"
+                                    th:text="${l.label + ' (' + l.cost + ')'}"></option>
+                        </select>
+                        <button type="submit" class="btn btn-success w-100" id="runBtn">Run Test</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Chart + Feed -->
+        <div class="col-lg-9">
+            <!-- Chart -->
+            <div class="card mb-3">
+                <div class="card-header bg-danger text-white">Fraud Velocity</div>
+                <div class="card-body chart-box">
+                    <canvas id="chart"></canvas>
+                </div>
+            </div>
+
+            <!-- Feed -->
+            <div class="card">
+                <div class="card-header bg-warning d-flex justify-content-between">
+                    <span>Live Fraud Feed</span>
+                    <span class="badge bg-dark" id="alertCount">0</span>
+                </div>
+                <div class="card-body p-0 feed-box">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead class="sticky-top bg-light">
+                        <tr><th>Domain</th><th>Actor</th><th>Type</th><th>Amount</th><th>Severity</th><th>Score</th></tr>
+                        </thead>
+                        <tbody id="feedBody">
+                        <tr><td colspan="6" class="text-center text-muted">Loading...</td></tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
     </div>
-
-    <!-- AC1.2 & AC1.3: Test Execution Control -->
-    <div class="card mb-4">
-        <div class="card-header bg-success text-white">
-            <h5 class="mb-0"><i class="bi bi-play-circle"></i> Run Load Test</h5>
-        </div>
-        <div class="card-body">
-            <form id="testForm">
-                <!-- Domain Selection -->
-                <div class="mb-3">
-                    <label class="form-label fw-bold">Select Domain</label>
-                    <div class="btn-group w-100" role="group">
-                        <input type="radio" class="btn-check" name="domain" id="gaming" value="gaming">
-                        <label class="btn btn-outline-primary" for="gaming">
-                            <i class="bi bi-controller"></i> Gaming
-                        </label>
-
-                        <input type="radio" class="btn-check" name="domain" id="ecommerce" value="ecommerce">
-                        <label class="btn btn-outline-primary" for="ecommerce">
-                            <i class="bi bi-cart"></i> E-commerce
-                        </label>
-
-                        <input type="radio" class="btn-check" name="domain" id="fintech" value="fintech">
-                        <label class="btn btn-outline-primary" for="fintech">
-                            <i class="bi bi-currency-dollar"></i> FinTech
-                        </label>
-                    </div>
-                </div>
-
-                <!-- AC1.3: Load Level Selection -->
-                <div class="mb-3">
-                    <label class="form-label fw-bold">Load Level</label>
-                    <select class="form-select" id="loadLevel" name="loadLevel">
-                        <option th:each="level : ${loadLevels}"
-                                th:value="${level.value}"
-                                th:text="${level.label + ' - ' + level.eventsPerMin + ' (Est: ' + level.cost + ')'}">
-                            Normal Load - 10K/min (Est: $0.15)
-                        </option>
-                    </select>
-                    <!-- AC1.3: Crisis Warning -->
-                    <div id="crisisWarning" class="alert alert-warning mt-2" style="display: none;">
-                        <i class="bi bi-exclamation-triangle"></i>
-                        <strong>Warning:</strong> Crisis mode will cost approximately <span id="crisisCost"></span>
-                    </div>
-                </div>
-
-                <!-- Execute Button -->
-                <button type="submit" class="btn btn-success btn-lg w-100" id="executeBtn">
-                    <i class="bi bi-play-fill"></i> Run Test
-                </button>
-            </form>
-        </div>
-    </div>
-
-    <!-- AC1.4: Real-Time Progress Monitoring -->
-    <div class="card mb-4" id="progressCard" style="display: none;">
-        <div class="card-header bg-info text-white">
-            <h5 class="mb-0"><i class="bi bi-clock-history"></i> Test Progress</h5>
-        </div>
-        <div class="card-body">
-            <div class="row text-center mb-3">
-                <div class="col-md-3">
-                    <h6 class="text-muted">Events Processed</h6>
-                    <h3 class="text-primary" id="eventsProcessed">0</h3>
-                </div>
-                <div class="col-md-3">
-                    <h6 class="text-muted">Fraud Detected</h6>
-                    <h3 class="text-danger" id="fraudDetected">0</h3>
-                </div>
-                <div class="col-md-3">
-                    <h6 class="text-muted">Throughput</h6>
-                    <h3 class="text-success" id="throughput">0</h3>
-                    <small class="text-muted">events/sec</small>
-                </div>
-                <div class="col-md-3">
-                    <h6 class="text-muted">Status</h6>
-                    <h3 id="testStatus">
-                        <span class="badge bg-primary">Running</span>
-                    </h3>
-                </div>
-            </div>
-            <div class="progress" style="height: 30px;">
-                <div class="progress-bar progress-bar-striped progress-bar-animated"
-                     id="progressBar"
-                     role="progressbar"
-                     style="width: 0%">
-                    0%
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- AC1.1: Last 10 Test Runs -->
-    <div class="card">
-        <div class="card-header bg-secondary text-white">
-            <h5 class="mb-0"><i class="bi bi-clock-history"></i> Recent Test Runs</h5>
-        </div>
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead>
-                    <tr>
-                        <th>Started</th>
-                        <th>Domain</th>
-                        <th>Load Level</th>
-                        <th>Events</th>
-                        <th>Fraud Rate</th>
-                        <th>Status</th>
-                        <th>Cost</th>
-                        <th>Actions</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    <tr th:each="run : ${recentRuns}">
-                        <td th:text="${run.startedAt}">2025-10-07T10:30</td>
-                        <td>
-                            <span class="badge bg-primary" th:text="${run.domain}">gaming</span>
-                        </td>
-                        <td th:text="${run.loadLevel}">normal</td>
-                        <td th:text="${#numbers.formatInteger(run.eventsProcessed, 0, 'COMMA')}">10,000</td>
-                        <td>
-                            <span class="badge bg-warning" th:text="${run.fraudRate + '%'}">2.34%</span>
-                        </td>
-                        <td>
-                            <span class="badge bg-success" th:text="${run.status}">completed</span>
-                        </td>
-                        <td th:text="${run.cost}">$0.15</td>
-                        <td>
-                            <a th:href="@{/results/{id}(id=${run.id})}" class="btn btn-sm btn-outline-primary">
-                                <i class="bi bi-bar-chart"></i> View
-                            </a>
-                        </td>
-                    </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="/js/dashboard.js"></script>
 </body>
 </html>

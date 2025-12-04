@@ -4,12 +4,18 @@ spring:
   autoconfigure:
     exclude:
       - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
-      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
 
 server:
   port: 8080
 
+patternalarm:
+  # LOCAL: true (mock data) | ECS: false (real Lambda + API Gateway)
+  mock: ${MOCK_MODE:true}
+  api-gateway:
+    url: ${API_GATEWAY_URL:http://api-gateway.patternalarm.local:8080}
+  lambda:
+    function-name: ${LAMBDA_FUNCTION_NAME:patternalarm-event-generator}
+
 logging:
   level:
     com.patternalarm: DEBUG
-    org.springframework: DEBUG
