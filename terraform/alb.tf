@@ -69,9 +69,9 @@ resource "aws_lb_target_group" "dashboard" {
   health_check {
     enabled             = true
     healthy_threshold   = 2
-    unhealthy_threshold = 3
-    timeout             = 5
-    interval            = 30
+    unhealthy_threshold = 5      # était 3
+    timeout             = 30     # était 5
+    interval            = 60     # était 30
     path                = "/health"
     protocol            = "HTTP"
     matcher             = "200"

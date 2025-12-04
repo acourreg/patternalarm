@@ -249,6 +249,24 @@ resource "aws_iam_role" "airflow_task" {
   })
 }
 
+# ============================================================================
+# ECS TASK ROLE - LAMBDA INVOKE PERMISSION
+# ============================================================================
+
+resource "aws_iam_role_policy" "ecs_lambda_invoke" {
+  name = "${var.project_name}-ecs-lambda-invoke"
+  role = aws_iam_role.ecs_task.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = "lambda:InvokeFunction"
+      Resource = "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${var.project_name}-*"
+    }]
+  })
+}
+
 resource "aws_iam_role_policy" "airflow_task" {
   name = "${var.project_name}-airflow-policy"
   role = aws_iam_role.airflow_task.id
@@ -306,6 +324,14 @@ resource "aws_security_group" "ecs_tasks" {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
+    self        = true
+  }
+
+  egress {
+    description = "Inter-service on 8080"
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
     self        = true
   }
 
@@ -440,15 +466,6 @@ resource "aws_security_group_rule" "rds_from_bastion" {
   description              = "Allow Bastion to access RDS"
 }
 
-resource "aws_security_group_rule" "ecs_to_ecs_8080" {
-  type                     = "egress"
-  from_port                = 8080
-  to_port                  = 8080
-  protocol                 = "tcp"
-  security_group_id        = aws_security_group.ecs_tasks.id
-  source_security_group_id = aws_security_group.ecs_tasks.id
-  description              = "Allow ECS tasks to call each other"
-}
 
 # ============================================================================
 # ECS SERVICES
