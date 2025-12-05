@@ -10,6 +10,7 @@ import org.apache.flink.streaming.api.functions.ProcessFunction
 import org.apache.flink.util.Collector
 import sttp.client3._
 
+import java.net.http.HttpClient
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
 
@@ -72,10 +73,13 @@ class FraudScoringBatchFunction(
       val batchRequest = BatchPredictRequest(predictions)
       val requestJson = JsonUtils.toJson(batchRequest)
 
+      print(requestJson)
+
       // Sync HTTP call
       val response = basicRequest
         .post(uri"$fastapiUrl/predict/batch")
         .contentType("application/json")
+        .header("Connection", "close")
         .body(requestJson)
         .readTimeout(scala.concurrent.duration.Duration(30, "seconds"))
         .response(asStringAlways)
