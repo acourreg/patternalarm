@@ -30,7 +30,11 @@ class FraudScoringBatchFunction(
 
   override def open(parameters: Configuration): Unit = {
     buffer = ArrayBuffer.empty
-    backend = HttpClientSyncBackend()
+    backend = HttpClientSyncBackend.usingClient(
+      HttpClient.newBuilder()
+        .version(HttpClient.Version.HTTP_1_1)
+        .build()
+    )
     lastFlushTime = System.currentTimeMillis()
     println(s"✅ FraudScoringBatchFunction initialized (batchSize=$batchSize, flushInterval=${flushIntervalMs}ms)")
   }
