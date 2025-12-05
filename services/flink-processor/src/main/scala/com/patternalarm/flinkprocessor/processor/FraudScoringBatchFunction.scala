@@ -94,6 +94,7 @@ class FraudScoringBatchFunction(
         currentBatch.foreach { agg =>
           responseMap.get(agg.actorId) match {
             case Some(pred) =>
+              println(s"🎯 actor=${agg.actorId} score=${(pred.confidence * 100).toInt} fraud=${pred.isFraud}")
               val predictResponse = PredictResponse(
                 fraudScore = (pred.confidence * 100).toInt,
                 modelVersion = pred.mlVersion,
