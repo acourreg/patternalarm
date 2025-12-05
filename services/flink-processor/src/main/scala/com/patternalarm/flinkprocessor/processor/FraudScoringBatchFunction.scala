@@ -73,13 +73,10 @@ class FraudScoringBatchFunction(
       val batchRequest = BatchPredictRequest(predictions)
       val requestJson = JsonUtils.toJson(batchRequest)
 
-      print(requestJson)
-
       // Sync HTTP call
       val response = basicRequest
         .post(uri"$fastapiUrl/predict/batch")
         .contentType("application/json")
-        .header("Connection", "close")
         .body(requestJson)
         .readTimeout(scala.concurrent.duration.Duration(30, "seconds"))
         .response(asStringAlways)
