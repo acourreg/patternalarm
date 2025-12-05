@@ -128,23 +128,40 @@ class SparkFraudModel(BaseFraudModel):
 
         # ✅ Convert all to feature store entities
         actors = [pred_req.to_actor_transactions() for pred_req in request.predictions]
+        t1 = time.time()
+        print(f"⏱️ [1] to_actor_transactions: {(t1 - start) * 1000:.0f}ms")
 
         # ✅ Extract features using feature store
         all_features = [
             FeatureEngineering.extract_features_pandas(actor)
             for actor in actors
         ]
+        t2 = time.time()
+        print(f"⏱️ [2] extract_features_pandas: {(t2 - t1) * 1000:.0f}ms")
 
         # Extract metadata
         time_deltas = [f.pop('time_delta_sec') for f in all_features]
         for f in all_features:
             f.pop('fraud_first_seen')
+        t3 = time.time()
+        print(f"⏱️ [3] pop metadata: {(t3 - t2) * 1000:.0f}ms")
 
         # Batch predict
         df = pd.DataFrame(all_features)
+        t4 = time.time()
+        print(f"⏱️ [4] pd.DataFrame: {(t4 - t3) * 1000:.0f}ms")
+
         spark_df = self._spark.createDataFrame(df)
+        t5 = time.time()
+        print(f"⏱️ [5] createDataFrame: {(t5 - t4) * 1000:.0f}ms")
+
         predictions_df = self._model.transform(spark_df)
+        t6 = time.time()
+        print(f"⏱️ [6] model.transform: {(t6 - t5) * 1000:.0f}ms")
+
         results = predictions_df.select("prediction", "probability").collect()
+        t7 = time.time()
+        print(f"⏱️ [7] collect: {(t7 - t6) * 1000:.0f}ms")
 
         # Format responses
         predictions = []
@@ -162,8 +179,11 @@ class SparkFraudModel(BaseFraudModel):
                 ml_version=self.ml_version,
                 inference_time_ms=0
             ))
+        t8 = time.time()
+        print(f"⏱️ [8] format responses: {(t8 - t7) * 1000:.0f}ms")
 
         total_time = (time.time() - start) * 1000
+        print(f"⏱️ [TOTAL] {total_time:.0f}ms for {len(predictions)} predictions")
 
         return BatchPredictResponse(
             predictions=predictions,

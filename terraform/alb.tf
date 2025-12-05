@@ -30,7 +30,6 @@ resource "aws_security_group" "alb" {
   }
 }
 
-# Ajouter ingress rule pour permettre ALB → Dashboard
 resource "aws_security_group_rule" "ecs_from_alb" {
   type                     = "ingress"
   from_port                = 8080
