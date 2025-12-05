@@ -9,7 +9,7 @@ import com.patternalarm.flinkprocessor.utils.JsonUtils
 import org.apache.flink.api.common.eventtime.{SerializableTimestampAssigner, WatermarkStrategy}
 import org.apache.flink.api.common.functions.{FilterFunction, MapFunction}
 import org.apache.flink.api.common.serialization.SimpleStringSchema
-import org.apache.flink.streaming.api.datastream.{AsyncDataStream, DataStream}
+import org.apache.flink.streaming.api.datastream.DataStream
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
 import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows
 import org.apache.flink.streaming.api.windowing.time.Time
@@ -17,7 +17,6 @@ import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer
 
 import java.time.{Duration, Instant}
 import java.util.Properties
-import java.util.concurrent.TimeUnit
 
 class StreamProcessorJob(
                           envProvider: () => StreamExecutionEnvironment,
@@ -45,13 +44,12 @@ class StreamProcessorJob(
     val windowedStream = keyedStream.window(TumblingEventTimeWindows.of(Time.minutes(Config.Flink.Windowing.sizeMinutes)))
     val aggregates = windowedStream.apply(new TransactionWindowFunction()).map(new AggregateLogger)
 
-    val scoredStream = AsyncDataStream.unorderedWait(
-      aggregates,
-      fraudScoringAsyncFunction,
-      Config.FastApi.timeoutMs,
-      TimeUnit.MILLISECONDS,
-      Config.FastApi.maxConcurrentRequests
-    ).asInstanceOf[DataStream[(TimedWindowAggregate, PredictResponse)]]
+    val scoredStream = aggregates
+      .process(new FraudScoringBatchFunction(
+        Config.FastApi.url,
+        batchSize = 100,
+        flushIntervalMs = 5000
+      ))
 
     scoredStream
       .map(new ScoreLogger)
