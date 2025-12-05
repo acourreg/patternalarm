@@ -244,10 +244,20 @@ class AggregateLogger extends MapFunction[TimedWindowAggregate, TimedWindowAggre
 @SerialVersionUID(102L)
 class ScoreLogger extends MapFunction[(TimedWindowAggregate, PredictResponse), (TimedWindowAggregate, PredictResponse)] {
   override def map(tuple: (TimedWindowAggregate, PredictResponse)): (TimedWindowAggregate, PredictResponse) = {
+    ScoreLogger.count += 1
+    if (ScoreLogger.count % 100 == 0) {
+      val elapsed = (System.currentTimeMillis() - ScoreLogger.startTime) / 1000
+      println(s"📊 STATS: total=${ScoreLogger.count}, elapsed=${elapsed}s")
+    }
     val (agg, response) = tuple
     println(s"🎯 Score: actor=${agg.actorId}, fraud_score=${response.fraudScore}, model=${response.modelVersion}")
     tuple
   }
+}
+
+object ScoreLogger {
+  var count = 0L
+  val startTime = System.currentTimeMillis()
 }
 
 @SerialVersionUID(103L)
@@ -267,3 +277,4 @@ class AlertWithTransactionsBuilder extends MapFunction[(TimedWindowAggregate, Pr
     StreamProcessorJob.buildAlertWithTransactions(aggregate, response)
   }
 }
+
