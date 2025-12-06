@@ -1,5 +1,6 @@
 package com.patternalarm.flinkprocessor
 
+import com.patternalarm.flinkprocessor.HighRiskFilter.passed
 import com.patternalarm.flinkprocessor.config.Config
 import com.patternalarm.flinkprocessor.model._
 import com.patternalarm.flinkprocessor.processor._
@@ -245,19 +246,33 @@ class AggregateLogger extends MapFunction[TimedWindowAggregate, TimedWindowAggre
 class ScoreLogger extends MapFunction[(TimedWindowAggregate, PredictResponse), (TimedWindowAggregate, PredictResponse)] {
   override def map(tuple: (TimedWindowAggregate, PredictResponse)): (TimedWindowAggregate, PredictResponse) = {
     ScoreLogger.count += 1
-    if (ScoreLogger.count % 100 == 0) {
-      val elapsed = (System.currentTimeMillis() - ScoreLogger.startTime) / 1000
-      println(s"📊 STATS: total=${ScoreLogger.count}, elapsed=${elapsed}s")
-    }
     val (agg, response) = tuple
-    println(s"🎯 Score: actor=${agg.actorId}, fraud_score=${response.fraudScore}, model=${response.modelVersion}")
+
+    // Track high risk separately
+    if (response.fraudScore >= 60) {
+      ScoreLogger.highRiskCount += 1
+    }
+
+    // Stats every 50 scores (not 100)
+    if (ScoreLogger.count % 50 == 0) {
+      val elapsed = (System.currentTimeMillis() - ScoreLogger.startTime) / 1000
+      val rate = if (elapsed > 0) ScoreLogger.count / elapsed else 0
+      println(s"📊 SCORING: total=${ScoreLogger.count} | high_risk=${ScoreLogger.highRiskCount} | ${rate}/s | ${elapsed}s elapsed")
+    }
+
+    // Only log individual scores for HIGH risk (score >= 75)
+    if (response.fraudScore >= 75) {
+      println(s"🎯 HIGH_RISK: actor=${agg.actorId} score=${response.fraudScore} txns=${agg.transactionCount}")
+    }
+
     tuple
   }
 }
 
 object ScoreLogger {
   var count = 0L
-  val startTime = System.currentTimeMillis()
+  var highRiskCount = 0L
+  val startTime: Long = System.currentTimeMillis()
 }
 
 @SerialVersionUID(103L)
@@ -267,7 +282,24 @@ class AlertLogger extends MapFunction[(Alert, Seq[TransactionEvent]), (Alert, Se
 
 @SerialVersionUID(104L)
 class HighRiskFilter extends FilterFunction[(TimedWindowAggregate, PredictResponse)] {
-  override def filter(tuple: (TimedWindowAggregate, PredictResponse)): Boolean = StreamProcessorJob.isHighRisk(tuple)
+  override def filter(tuple: (TimedWindowAggregate, PredictResponse)): Boolean = {
+    val passed = StreamProcessorJob.isHighRisk(tuple)
+    HighRiskFilter.total += 1
+    if (passed) HighRiskFilter.passed += 1
+
+    // Log filter stats every 100
+    if (HighRiskFilter.total % 100 == 0) {
+      val rate = (HighRiskFilter.passed.toDouble / HighRiskFilter.total * 100).toInt
+      println(s"🔍 FILTER: ${HighRiskFilter.passed}/${HighRiskFilter.total} passed ($rate%)")
+    }
+
+    passed
+  }
+}
+
+object HighRiskFilter {
+  var total = 0L
+  var passed = 0L
 }
 
 @SerialVersionUID(105L)

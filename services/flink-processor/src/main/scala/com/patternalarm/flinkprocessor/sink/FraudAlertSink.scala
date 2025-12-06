@@ -9,6 +9,11 @@ import scalikejdbc._
 import java.sql.Timestamp
 import java.time.Instant
 
+// Add companion object for stats
+object FraudAlertSink {
+  var totalInserts = 0L
+}
+
 /**
  * Fraud Alert Sink - Stores alerts and suspicious transactions in PostgreSQL
  * Uses ScalikeJDBC for database operations
@@ -45,24 +50,34 @@ class FraudAlertSink(
   override def invoke(value: (Alert, Seq[TransactionEvent]), context: SinkFunction.Context): Unit = {
     val (alert, transactions) = value
 
-    try
-      DB.localTx { implicit session =>
-        // 1. Insert fraud alert
-        val alertId: Long = insertAlert(alert)
+    val startMs = System.currentTimeMillis()
 
-        // 2. Insert suspicious transactions
+    try {
+      DB.localTx { implicit session =>
+        val alertId: Long = insertAlert(alert)
         insertTransactions(alertId, transactions)
 
+        val durationMs = System.currentTimeMillis() - startMs
+
+        // ✅ Always log INSERT success
         logger.info(
-          s"✅ Alert $alertId stored: " +
-            s"actor=${alert.actorId}, " +
-            s"score=${alert.fraudScore}, " +
-            s"txns=${alert.transactionCount}"
+          s"✅ INSERT alert_id=$alertId | " +
+            s"actor=${alert.actorId} | " +
+            s"score=${alert.fraudScore} | " +
+            s"severity=${alert.severity} | " +
+            s"txns=${transactions.size} | " +
+            s"${durationMs}ms"
         )
+
+        // Track totals
+        FraudAlertSink.totalInserts += 1
+        if (FraudAlertSink.totalInserts % 10 == 0) {
+          logger.info(s"📈 SINK STATS: total_inserts=${FraudAlertSink.totalInserts}")
+        }
       }
-    catch {
+    } catch {
       case e: Exception =>
-        logger.error(s"❌ Failed to store alert: ${e.getMessage}", e)
+        logger.error(s"❌ INSERT FAILED: actor=${alert.actorId} | error=${e.getMessage}", e)
         throw e
     }
   }
