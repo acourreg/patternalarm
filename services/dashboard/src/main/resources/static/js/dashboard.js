@@ -34,14 +34,19 @@ function updateFeed(alerts) {
     tbody.innerHTML = alerts.map(a => `
         <tr>
             <td><span class="badge bg-primary">${a.domain}</span></td>
-            <td><code>${a.actorId}</code></td>
-            <td>${a.alertType}</td>
-            <td>$${a.totalAmount.toFixed(0)}</td>
+            <td><code>${a.actor_id}</code></td>
+            <td>${a.alert_type}</td>
+            <td>$${a.total_amount.toFixed(0)}</td>
             <td><span class="badge bg-${severityColor(a.severity)}">${a.severity}</span></td>
-            <td>${a.fraudScore}</td>
+            <td>${a.fraud_score}</td>
         </tr>
     `).join('');
     document.getElementById('alertCount').textContent = alerts.length;
+}
+
+function severityColor(s) {
+    const key = s?.toLowerCase() || '';
+    return { critical: 'danger', high: 'warning', medium: 'info', low: 'success' }[key] || 'secondary';
 }
 
 // Chart update
