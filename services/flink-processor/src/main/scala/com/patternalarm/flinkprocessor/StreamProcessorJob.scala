@@ -277,7 +277,11 @@ object ScoreLogger {
 
 @SerialVersionUID(103L)
 class AlertLogger extends MapFunction[(Alert, Seq[TransactionEvent]), (Alert, Seq[TransactionEvent])] {
-  override def map(tuple: (Alert, Seq[TransactionEvent])): (Alert, Seq[TransactionEvent]) = tuple
+  override def map(tuple: (Alert, Seq[TransactionEvent])): (Alert, Seq[TransactionEvent]) = {
+    val (alert, _) = tuple
+    println(s"📝 ALERT BUILT: actor=${alert.actorId} score=${alert.fraudScore} severity=${alert.severity}")
+    tuple
+  }
 }
 
 @SerialVersionUID(104L)

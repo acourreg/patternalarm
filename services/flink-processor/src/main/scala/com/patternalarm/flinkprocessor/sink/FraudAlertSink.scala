@@ -50,6 +50,9 @@ class FraudAlertSink(
   override def invoke(value: (Alert, Seq[TransactionEvent]), context: SinkFunction.Context): Unit = {
     val (alert, transactions) = value
 
+    // ✅ FORCE stdout - bypasse SLF4J
+    println(s"🔔 SINK RECEIVED: actor=${alert.actorId} score=${alert.fraudScore}")
+
     val startMs = System.currentTimeMillis()
 
     try {
@@ -59,25 +62,13 @@ class FraudAlertSink(
 
         val durationMs = System.currentTimeMillis() - startMs
 
-        // ✅ Always log INSERT success
-        logger.info(
-          s"✅ INSERT alert_id=$alertId | " +
-            s"actor=${alert.actorId} | " +
-            s"score=${alert.fraudScore} | " +
-            s"severity=${alert.severity} | " +
-            s"txns=${transactions.size} | " +
-            s"${durationMs}ms"
-        )
-
-        // Track totals
-        FraudAlertSink.totalInserts += 1
-        if (FraudAlertSink.totalInserts % 10 == 0) {
-          logger.info(s"📈 SINK STATS: total_inserts=${FraudAlertSink.totalInserts}")
-        }
+        // ✅ println au lieu de logger.info
+        println(s"✅ INSERT alert_id=$alertId | actor=${alert.actorId} | score=${alert.fraudScore} | severity=${alert.severity} | txns=${transactions.size} | ${durationMs}ms")
       }
     } catch {
       case e: Exception =>
-        logger.error(s"❌ INSERT FAILED: actor=${alert.actorId} | error=${e.getMessage}", e)
+        println(s"❌ INSERT FAILED: actor=${alert.actorId} | error=${e.getMessage}")
+        e.printStackTrace()
         throw e
     }
   }
