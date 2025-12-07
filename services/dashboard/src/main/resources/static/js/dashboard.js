@@ -53,29 +53,31 @@ function severityColor(s) {
 function updateChart(data) {
     if (!data.data_points?.length) return;
     const pts = data.data_points.slice(-15);
-    chart.data.labels = pts.map(p => new Date(p.bucket).toLocaleTimeString());
+    chart.data.labels = pts.map(p => `${Math.floor(p.x / 60)}m`);
     chart.data.datasets[0].data = pts.map(p => p.y1_velocity);
-    chart.data.datasets[1].data = pts.map(p => p.y2_avg_amount);
     chart.update('none');
 }
 
-// Chart init
+// Chart init - single axis
 function initChart() {
     chart = new Chart(document.getElementById('chart'), {
         type: 'line',
         data: {
             labels: [],
-            datasets: [
-                { label: 'Velocity', data: [], borderColor: '#dc3545', yAxisID: 'y' },
-                { label: 'Avg Amount', data: [], borderColor: '#0d6efd', yAxisID: 'y1' }
-            ]
+            datasets: [{
+                label: 'Alerts/min',
+                data: [],
+                borderColor: '#dc3545',
+                backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                fill: true,
+                tension: 0.3
+            }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
             scales: {
-                y: { position: 'left', beginAtZero: true },
-                y1: { position: 'right', beginAtZero: true, grid: { drawOnChartArea: false } }
+                y: { beginAtZero: true }
             }
         }
     });
@@ -100,7 +102,3 @@ document.getElementById('testForm')?.addEventListener('submit', async (e) => {
     btn.textContent = res.success ? '✓ Started' : '✗ Failed';
     setTimeout(() => { btn.disabled = false; btn.textContent = 'Run Test'; }, 3000);
 });
-
-function severityColor(s) {
-    return { critical: 'danger', high: 'warning', medium: 'info', low: 'success' }[s] || 'secondary';
-}

@@ -48,7 +48,7 @@
                         </div>
                         <select class="form-select form-select-sm mb-2" id="loadLevel">
                             <option th:each="l : ${loadLevels}" th:value="${l.value}"
-                                    th:text="${l.label + ' (' + l.cost + ')'}"></option>
+                                    th:text="${l.label + ' - ' + l.eventsPerMin + ' (' + l.cost + ')'}"></option>
                         </select>
                         <button type="submit" class="btn btn-success w-100" id="runBtn">Run Test</button>
                     </form>
@@ -60,7 +60,7 @@
         <div class="col-lg-9">
             <!-- Chart -->
             <div class="card mb-3">
-                <div class="card-header bg-danger text-white">Fraud Velocity</div>
+                <div class="card-header bg-danger text-white">Alerts per Minute</div>
                 <div class="card-body chart-box">
                     <canvas id="chart"></canvas>
                 </div>
