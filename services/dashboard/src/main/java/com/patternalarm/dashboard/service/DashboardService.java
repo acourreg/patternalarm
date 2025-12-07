@@ -115,44 +115,25 @@ public class DashboardService {
 
     public java.util.Map<String, Object> getSystemStatus() {
         java.util.Map<String, Object> status = new HashMap<>();
+        String version = System.getenv().getOrDefault("APP_VERSION", "dev");
+        String checkedAt = Instant.now().toString();
 
         if (isMockMode()) {
-            java.util.Map<String, String> mockStatus = new HashMap<>();
-            mockStatus.put("status", "mock");
-            mockStatus.put("message", "Mock mode enabled");
-            status.put("api-gateway", mockStatus);
-            status.put("kafka", mockStatus);
-            status.put("flink", mockStatus);
+            status.put("flink", Map.of("status", "mock", "version", version, "checkedAt", checkedAt));
+            status.put("kafka", Map.of("status", "mock", "version", version, "checkedAt", checkedAt));
+            status.put("api-gateway", Map.of("status", "mock", "version", version, "checkedAt", checkedAt));
             return status;
         }
 
         try {
             restTemplate.getForObject(apiGatewayUrl + "/health", String.class);
-            java.util.Map<String, String> apiStatus = new HashMap<>();
-            apiStatus.put("status", "connected");
-            apiStatus.put("message", "API Gateway healthy");
-            status.put("api-gateway", apiStatus);
-
-            java.util.Map<String, String> kafkaStatus = new HashMap<>();
-            kafkaStatus.put("status", "connected");
-            kafkaStatus.put("message", "Via API Gateway");
-            status.put("kafka", kafkaStatus);
-
-            java.util.Map<String, String> flinkStatus = new HashMap<>();
-            flinkStatus.put("status", "running");
-            flinkStatus.put("message", "Via API Gateway");
-            status.put("flink", flinkStatus);
+            status.put("api-gateway", Map.of("status", "connected", "version", version, "checkedAt", checkedAt));
+            status.put("kafka", Map.of("status", "connected", "version", version, "checkedAt", checkedAt));
+            status.put("flink", Map.of("status", "running", "version", version, "checkedAt", checkedAt));
         } catch (Exception e) {
-            java.util.Map<String, String> errorStatus = new HashMap<>();
-            errorStatus.put("status", "error");
-            errorStatus.put("message", e.getMessage());
-            status.put("api-gateway", errorStatus);
-
-            java.util.Map<String, String> unknownStatus = new HashMap<>();
-            unknownStatus.put("status", "unknown");
-            unknownStatus.put("message", "API Gateway down");
-            status.put("kafka", unknownStatus);
-            status.put("flink", unknownStatus);
+            status.put("api-gateway", Map.of("status", "error", "message", e.getMessage(), "checkedAt", checkedAt));
+            status.put("kafka", Map.of("status", "unknown", "checkedAt", checkedAt));
+            status.put("flink", Map.of("status", "unknown", "checkedAt", checkedAt));
         }
         return status;
     }

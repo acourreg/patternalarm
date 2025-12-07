@@ -25,11 +25,11 @@
             <!-- Status -->
             <div class="card mb-3">
                 <div class="card-header bg-primary text-white">System Status</div>
-                <div class="card-body p-2">
-                    <div th:each="s : ${systemStatus}" class="d-flex align-items-center mb-1">
-                        <span class="badge bg-success me-2">●</span>
-                        <small th:text="${s.key}">service</small>
-                    </div>
+                <div th:each="s : ${systemStatus}" class="d-flex align-items-center mb-1">
+                    <span class="badge me-2"
+                          th:classappend="${s.value.status == 'connected' || s.value.status == 'running'} ? 'bg-success' : 'bg-warning'">●</span>
+                    <small th:text="${s.key}">service</small>
+                    <small class="ms-auto text-muted" th:text="${s.value.version}">v1.0</small>
                 </div>
             </div>
 
