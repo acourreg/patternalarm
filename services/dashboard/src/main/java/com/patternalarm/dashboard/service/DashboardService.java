@@ -128,8 +128,6 @@ public class DashboardService {
         try {
             restTemplate.getForObject(apiGatewayUrl + "/health", String.class);
             status.put("api-gateway", Map.of("status", "connected", "version", version, "checkedAt", checkedAt));
-            status.put("kafka", Map.of("status", "connected", "version", version, "checkedAt", checkedAt));
-            status.put("flink", Map.of("status", "running", "version", version, "checkedAt", checkedAt));
         } catch (Exception e) {
             status.put("api-gateway", Map.of("status", "error", "message", e.getMessage(), "checkedAt", checkedAt));
             status.put("kafka", Map.of("status", "unknown", "checkedAt", checkedAt));
