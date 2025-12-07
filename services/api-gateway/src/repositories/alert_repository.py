@@ -60,7 +60,7 @@ class AlertRepository:
 
     async def get_velocity_analytics(
             self,
-            bucket_size_seconds: int = 5,
+            bucket_size_seconds: int = 60,  # ← 5 → 60
             sliding_window_rows: int = 4
     ) -> List[dict]:
         """
