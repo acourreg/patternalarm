@@ -22,6 +22,8 @@ Built for payment fraud, gaming anti-cheat, and IoT anomaly detection.
 
 ## 🏗️ Architecture
 
+<!-- TODO: Replace by LucidChart -->
+
 ```
 ┌─────────────┐    ┌─────────────┐    ┌─────────────────┐    ┌─────────────┐
 │   Lambda    │───▶│    MSK      │───▶│  Flink (ECS)    │───▶│     RDS     │
@@ -241,7 +243,7 @@ MIT
 
 ## 🙋 Author
 
-**[Your Name]**  
+**Aurelien Courreges-Clercq**  
 Data Engineer | Streaming & ML Systems
 
 [LinkedIn](https://linkedin.com/in/yourprofile) · [Portfolio](https://yourportfolio.com)
