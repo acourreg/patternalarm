@@ -5,7 +5,6 @@
 > *Part of my [Scalefine.ai](https://scalefine.ai) portfolio — exploring streaming patterns for real-time ML.*
 
 ![Dashboard](docs/images/dashboard.gif)
-<!-- TODO: Add GIF of live dashboard -->
 
 ---
 
@@ -13,22 +12,24 @@
 
 This is a **sandbox project** exploring how streaming architectures handle fraud detection patterns. The goal was to wire together Kafka → Flink → Spark ML end-to-end and see where the bottlenecks actually are.
 
-**What I wanted to prove:**
-- Can a single Flink worker keep up with 10K events/min while calling an ML API?
+**What I wanted to learn:**
+- Can Flink keep up with 10K events/min while calling an ML API?
 - How bad is Spark job overhead for real-time inference? (Spoiler: very bad — see [Performance Case Study](#-performance-case-study-79x-throughput-improvement))
 - What does it cost to run MSK + ECS + RDS for a streaming pipeline?
 
-**Domains covered:** The simulator generates transactions for fintech, gaming, and e-commerce — same pipeline, different fraud patterns.
+These questions came from my experience in gaming analytics, where streaming pipelines often hit scalability walls under high-velocity data. By simulating fraud across fintech, gaming, and e-commerce, I aimed to uncover practical trade-offs in cost, performance, and reliability that go beyond textbook setups.
 
 ---
 
 ## 📊 Capacity & Cost
 
-| Configuration | Throughput | Monthly Cost | Cost per 1M events |
-|---------------|------------|--------------|-------------------|
-| **1 worker** | ~3,700/min | ~$300 | ~$0.05 |
-| **3 workers** | ~12,000/min | ~$450 | ~$0.025 |
-| **10 workers** | ~35,000/min | ~$800 | ~$0.015 |
+To evaluate scalability, I ran load tests across different API Gateway configurations. The ML inference layer turned out to be the bottleneck — not Flink. Here's how throughput scales with API Gateway instances:
+
+| API Gateway Instances | Throughput | Monthly Cost | Cost per 1M events |
+|-----------------------|------------|--------------|-------------------|
+| **1 instance** | ~3,700/min | ~$300 | ~$0.05 |
+| **3 instances** | ~12,000/min | ~$450 | ~$0.025 |
+| **10 instances** | ~35,000/min | ~$800 | ~$0.015 |
 
 *Measured during load tests. Auto-scales to zero when idle.*
 
@@ -38,10 +39,12 @@ This is a **sandbox project** exploring how streaming architectures handle fraud
 
 | Metric | Value | Notes |
 |--------|-------|-------|
-| **Throughput** | 3.7K events/min (1 worker) | Scales horizontally |
+| **Throughput** | 3.7K events/min (1 API instance) | Scales horizontally |
 | **ML Accuracy** | 97.5% (F1: 97.27%) | 10-class RandomForest |
 | **Detection Latency** | < 3 seconds | End-to-end |
 | **Batch Optimization** | 79x faster | See case study below |
+
+These metrics validate the pipeline's viability for real-time fraud intervention, where low latency is critical. The high ML accuracy, combined with sub-3-second detection, provides a blueprint for production systems handling diverse event streams.
 
 > 📖 *The 79x improvement was the interesting part — [write-up here](https://scalefine.ai/blog/pattern-alarm-performance-case-study).*
 
@@ -49,8 +52,9 @@ This is a **sandbox project** exploring how streaming architectures handle fraud
 
 ## 🏗️ Architecture
 
-![Architecture](docs/images/pattern-alarm-diagram.png)
+The architecture follows a layered approach: event ingestion via Kafka, stream processing in Flink, and ML scoring through a FastAPI service running Spark. Data flows seamlessly across domains, with built-in fault tolerance and horizontal scalability at the inference layer.
 
+![Architecture](docs/images/pattern-alarm-diagram.png)
 
 ### Services
 
@@ -58,7 +62,7 @@ This is a **sandbox project** exploring how streaming architectures handle fraud
 |---------|---------|------|
 | **`event-simulator/`** | Lambda function generating fictive transactions with configurable fraud %. Triggered by dashboard, injects into Kafka topics. | Python, AWS Lambda |
 | **`flink-processor/`** | Processes Kafka streams from 3 domains (fintech/ecommerce/gaming). Bronze→Silver (shared features) →Gold (ML scoring). Saves fraud alerts to PostgreSQL. | Scala, Flink, ECS Fargate |
-| **`api-gateway/`** | Serves ML predictions, velocity analytics, and fraud alerts with related transactions. Loads trained model from S3. | Python, FastAPI, Spark ML |
+| **`api-gateway/`** | Serves ML predictions, velocity analytics, and fraud alerts with related transactions. Loads trained model from S3. **This was the bottleneck.** | Python, FastAPI, Spark ML |
 | **`dashboard/`** | UI to trigger transaction pipeline, monitor fraud status, and visualize real-time charts. | Java, Spring Boot, Chart.js |
 | **`airflow/`** | Productionizes model training pipeline: extract features → train model → validate → save to S3. | Python, Airflow, EMR Serverless |
 | **`notebook/`** | Preliminary model development — cross-domain RandomForest achieving 97.5% accuracy on 10 fraud types. | PySpark, Jupyter |
@@ -81,6 +85,8 @@ This is a **sandbox project** exploring how streaming architectures handle fraud
 ---
 
 ## 📸 Screenshots
+
+To illustrate the pipeline in action, here are key visuals from the dashboard, ML workflow, and cost tracking.
 
 ### Live Dashboard
 Real-time fraud alerts with velocity graph and severity indicators.
@@ -120,7 +126,7 @@ Isolated the API Gateway and profiled each step:
 ⏱️ [7] collect:          773ms (81%)  ← BOTTLENECK
 ```
 
-**Finding:** 81% of time was fixed overhead (Spark job setup), not actual inference. Adding workers wouldn't fix this.
+**Finding:** 81% of time was fixed overhead (Spark job setup), not actual inference. Scaling Flink or adding API instances wouldn't fix this — the problem was architectural.
 
 ### Solution: Batch Processing
 
@@ -144,16 +150,18 @@ aggregates.process(new FraudScoringBatchFunction(batchSize = 100))
 |--------|--------|-------|-------------|
 | Latency/prediction | 950ms | 12ms | **79x faster** |
 | Throughput | 63/min | 3,700/min | **59x higher** |
-| NORMAL mode (10K/min) | ❌ | ✅ (with 3 workers) | — |
+| 10K/min target | ❌ | ✅ (with 3 API instances) | — |
 
-### Capacity Planning
+### Capacity Planning (Post-Optimization)
 
 | Configuration | Throughput | Supported Load |
 |---------------|------------|----------------|
-| 1 worker, single requests | 63/min | ❌ None |
-| 1 worker, batch 100 | 3,700/min | ✅ MINI |
-| 3-4 workers, batch 100 | 12,000/min | ✅ NORMAL |
-| 10+ workers | 35,000/min | ✅ PEAK |
+| 1 API instance, single requests | 63/min | ❌ None |
+| 1 API instance, batch 100 | 3,700/min | ✅ MINI |
+| 3 API instances, batch 100 | 12,000/min | ✅ NORMAL |
+| 10 API instances, batch 100 | 35,000/min | ✅ PEAK |
+
+This optimization not only met the 10K/min target but also underscored the value of rethinking inference patterns in streaming ML pipelines.
 
 > 💡 *Takeaway: Profile before scaling. This applies to any Spark-based inference.*
 
@@ -161,7 +169,7 @@ aggregates.process(new FraudScoringBatchFunction(batchSize = 100))
 
 ## 🎯 Detection Results
 
-From NORMAL load test (~10K events/min with 3 workers):
+In a NORMAL load test simulating 10K events per minute, the pipeline generated 16 alerts, catching 40.6% of true fraud cases across various types. Critical and high-severity incidents were prioritized effectively, showcasing the system's ability to surface actionable insights in real time.
 
 | Metric | Value |
 |--------|-------|
@@ -181,6 +189,8 @@ From NORMAL load test (~10K events/min with 3 workers):
 
 ## 🚀 Quick Start
 
+Getting started is straightforward, whether for local development or full AWS deployment.
+
 ### Prerequisites
 
 - AWS CLI configured
@@ -193,7 +203,7 @@ From NORMAL load test (~10K events/min with 3 workers):
 
 ```bash
 # Clone
-git clone https://github.com/yourusername/patternalarm.git
+git clone https://github.com/acourreg/patternalarm.git
 cd patternalarm
 
 # Start local stack (Kafka, PostgreSQL, Redis)
@@ -232,7 +242,7 @@ curl -X POST "https://<dashboard>/api/test/execute" \
 
 ## 💰 Cost Optimization
 
-Real AWS billing data from development:
+Managing costs was a key focus during development, as streaming setups can quickly rack up bills. From real billing data over six days, I optimized from an initial $26/day down to about $10/day through targeted strategies.
 
 | Metric | Value |
 |--------|-------|
@@ -241,7 +251,7 @@ Real AWS billing data from development:
 | **Optimized daily** | ~$10/day |
 | **Monthly estimate** | **~$300** |
 
-**Cost breakdown:** MSK (Kafka) ~40%, ECS (Flink) ~25%, RDS ~20%, Other ~15%
+**Cost breakdown:** MSK (Kafka) ~40%, ECS ~25%, RDS ~20%, Other ~15%
 
 **Savings tactics:**
 - ECS services scale to 0 when idle
@@ -255,15 +265,19 @@ Real AWS billing data from development:
 
 ## 📚 Lessons Learned
 
-1. **Batch > Single requests** for Spark ML — fixed overhead dominates individual inference
-2. **Profile before scaling** — adding workers wouldn't have fixed the real bottleneck
-3. **MSK is expensive** — consider Redpanda or self-hosted Kafka for dev environments
-4. **Auto-scale aggressively** — cloud costs compound faster than expected
-5. **EMR Serverless** — perfect for sporadic ML training (vs always-on EMR cluster)
+Building this project reinforced several principles in streaming and ML engineering:
+
+1. **Batch > Single requests** for Spark ML — fixed overhead dominates individual inference. This shift alone unlocked massive throughput gains.
+2. **Profile before scaling** — adding instances wouldn't have fixed the root bottleneck. The 79x improvement came from architectural change, not more resources.
+3. **MSK is expensive** — consider Redpanda or self-hosted Kafka for dev environments.
+4. **Auto-scale aggressively** — cloud costs compound faster than expected.
+5. **EMR Serverless** — perfect for sporadic ML training vs always-on clusters.
 
 ---
 
 ## 🛠️ What's Inside
+
+At its core, the project integrates streaming, data, cloud, and MLOps tools — with batch optimization being the most challenging (and rewarding) aspect.
 
 | Area | What I Used | Notes |
 |------|-------------|-------|
@@ -277,9 +291,8 @@ Real AWS billing data from development:
 
 ---
 
-## 🔗 Related Projects
+## 🔗 Related
 
-- **[TokenPulse](https://scalefine.ai/portfolio/tokenpulse)** — GenAI cost optimization with LangChain + streaming (coming Feb 2025)
 - **[Scalefine Blog](https://scalefine.ai/blog)** — Deep dives on Kafka, Flink, and production ML
 
 ---
@@ -292,7 +305,7 @@ MIT
 
 ## 🙋 Author
 
-**Aurélien Courrèges-Clercq**  
+**Aurélien Courreges-Clercq**  
 Building streaming pipelines and ML systems.
 
-[Scalefine.ai](https://scalefine.ai) · [LinkedIn](https://linkedin.com/in/yourprofile) · [GitHub](https://github.com/yourusername)
+[Scalefine.ai](https://scalefine.ai) · [LinkedIn](https://www.linkedin.com/in/acourreg/) · [GitHub](https://github.com/acourreg)
